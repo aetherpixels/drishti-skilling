@@ -44,7 +44,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // RATE LIMITERS (Sliding-Window DoS and Brute-Force Prevention)
 // -------------------------------------------------------------
 const apiRateLimit = parseInt(process.env.RATE_LIMIT_API_PER_MIN || '120', 10);
-const authRateLimit = parseInt(process.env.RATE_LIMIT_AUTH_PER_15MIN || '5', 10);
+const authRateLimit = parseInt(process.env.RATE_LIMIT_AUTH_PER_15MIN || '30', 10);
 const telemetryRateLimit = parseInt(process.env.RATE_LIMIT_TELEMETRY_PER_MIN || '60', 10);
 
 const generalApiLimiter = createRateLimiter({

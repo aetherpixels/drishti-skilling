@@ -169,13 +169,13 @@ function securityHeadersMiddleware(req, res, next) {
   // Permissions Policy
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
 
-  // Content Security Policy (Allows local assets, Tailwind, Leaflet, TensorFlow CDNs)
+  // Content Security Policy (Allows local assets, Tailwind, Leaflet, TensorFlow CDNs & Model Weights)
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://storage.googleapis.com https://tfhub.dev",
     "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net",
-    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com",
-    "connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://*.tile.openstreetmap.org",
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://storage.googleapis.com",
+    "connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://*.tile.openstreetmap.org https://storage.googleapis.com https://tfhub.dev https://*.googleapis.com https://*.tfhub.dev https://*.kaggle.com",
     "font-src 'self' https://unpkg.com https://cdn.jsdelivr.net data:",
     "media-src 'self' blob: data:",
     "frame-ancestors 'none'",
