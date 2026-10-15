@@ -207,26 +207,52 @@ document.addEventListener('DOMContentLoaded', () => {
 // -------------------------------------------------------------
 // TAB NAVIGATION
 // -------------------------------------------------------------
+function switchTab(tabId) {
+  // Update desktop tabs
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.getAttribute('data-tab') === tabId) {
+      t.classList.add('active', 'border-orange-500', 'text-white');
+      t.classList.remove('text-slate-400');
+    } else {
+      t.classList.remove('active', 'border-orange-500', 'text-white');
+      t.classList.add('text-slate-400');
+    }
+  });
+
+  // Update mobile bottom nav
+  document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+    if (btn.getAttribute('data-tab') === tabId) {
+      btn.classList.add('active', 'text-orange-400');
+      btn.classList.remove('text-slate-400');
+    } else {
+      btn.classList.remove('active', 'text-orange-400');
+      btn.classList.add('text-slate-400');
+    }
+  });
+
+  // Toggle tab contents
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+  const activeContent = document.getElementById(tabId);
+  if (activeContent) {
+    activeContent.classList.remove('hidden');
+  }
+
+  // Refresh Leaflet map if dashboard
+  if (tabId === 'tab-dashboard' && map) {
+    setTimeout(() => map.invalidateSize(), 200);
+  }
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
 function initTabs() {
-  const tabs = document.querySelectorAll('.nav-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => {
-        t.classList.remove('active', 'border-orange-500', 'text-white');
-        t.classList.add('text-slate-400');
-      });
-      tab.classList.add('active', 'border-orange-500', 'text-white');
-      tab.classList.remove('text-slate-400');
-
-      const targetTab = tab.getAttribute('data-tab');
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-      const activeContent = document.getElementById(targetTab);
-      if (activeContent) {
-        activeContent.classList.remove('hidden');
-      }
-
-      if (targetTab === 'tab-dashboard' && map) {
-        setTimeout(() => map.invalidateSize(), 200);
+  document.querySelectorAll('.nav-tab, .mobile-nav-btn').forEach(elem => {
+    elem.addEventListener('click', () => {
+      const targetTab = elem.getAttribute('data-tab');
+      if (targetTab) {
+        switchTab(targetTab);
       }
     });
   });
@@ -284,7 +310,7 @@ function initControls() {
 // LEAFLET GIS MAP
 // -------------------------------------------------------------
 function initMap() {
-  map = L.map('map').setView([22.5937, 78.9629], 5);
+  map = L.map('map', { scrollWheelZoom: false, touchZoom: true }).setView([22.5937, 78.9629], 5);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -422,8 +448,12 @@ function renderKPIs(centres) {
 
 function renderCentresTable(centres) {
   const tbody = document.getElementById('centres-table-body');
-  const search = document.getElementById('centre-search').value.toLowerCase();
-  const filter = document.getElementById('status-filter').value;
+  const mobileContainer = document.getElementById('centres-mobile-cards');
+  const searchInput = document.getElementById('centre-search');
+  const filterSelect = document.getElementById('status-filter');
+  
+  const search = searchInput ? searchInput.value.toLowerCase() : '';
+  const filter = filterSelect ? filterSelect.value : 'all';
 
   let filtered = centres.filter(c => {
     const matchSearch = c.name.toLowerCase().includes(search) || c.id.toLowerCase().includes(search) || c.trade.toLowerCase().includes(search);
@@ -431,58 +461,117 @@ function renderCentresTable(centres) {
     return matchSearch && matchStatus;
   });
 
-  tbody.innerHTML = '';
-  filtered.forEach(c => {
-    const tr = document.createElement('tr');
-    tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+  // 1. Populate Desktop Table Rows
+  if (tbody) {
+    tbody.innerHTML = '';
+    filtered.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
 
-    const statusBadge = c.status === 'green' 
-      ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
-      : (c.status === 'amber'
-        ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
-        : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
+      const statusBadge = c.status === 'green' 
+        ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
+        : (c.status === 'amber'
+          ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
+          : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
 
-    const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
-    const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
+      const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
+      const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
 
-    tr.innerHTML = `
-      <td class="p-3.5">
-        <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
-        <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.id)} • ${escapeHtml(c.scheme)}</div>
-      </td>
-      <td class="p-3.5 text-slate-600">
-        <div>${escapeHtml(c.district)}</div>
-        <div class="text-[10px] text-slate-400">${escapeHtml(c.state)}</div>
-      </td>
-      <td class="p-3.5">
-        <div class="font-semibold text-slate-800">${escapeHtml(c.trade)}</div>
-        <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.active_batch)}</div>
-      </td>
-      <td class="p-3.5">
-        <div class="flex items-center justify-between text-[11px] mb-1">
-          <span><strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)}</span>
-          <span class="text-[10px] font-bold ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
+      tr.innerHTML = `
+        <td class="p-3.5">
+          <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
+          <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.id)} • ${escapeHtml(c.scheme)}</div>
+        </td>
+        <td class="p-3.5 text-slate-600">
+          <div>${escapeHtml(c.district)}</div>
+          <div class="text-[10px] text-slate-400">${escapeHtml(c.state)}</div>
+        </td>
+        <td class="p-3.5">
+          <div class="font-semibold text-slate-800">${escapeHtml(c.trade)}</div>
+          <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.active_batch)}</div>
+        </td>
+        <td class="p-3.5">
+          <div class="flex items-center justify-between text-[11px] mb-1">
+            <span><strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)}</span>
+            <span class="text-[10px] font-bold ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
+          </div>
+          <div class="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+            <div class="${barColor} h-full rounded-full" style="width: ${fillPct}%"></div>
+          </div>
+        </td>
+        <td class="p-3.5">
+          ${statusBadge}
+        </td>
+        <td class="p-3.5">
+          <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+            ${escapeHtml(c.subsidy_status || 'ACTIVE')}
+          </span>
+        </td>
+        <td class="p-3.5 text-right">
+          <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded text-xs transition">
+            Audit & Evidence
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // 2. Populate Mobile Cards
+  if (mobileContainer) {
+    mobileContainer.innerHTML = '';
+    filtered.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2.5';
+
+      const statusBadge = c.status === 'green' 
+        ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
+        : (c.status === 'amber'
+          ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
+          : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
+
+      const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
+      const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
+
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="font-bold text-slate-900 text-sm leading-snug">${escapeHtml(c.name)}</div>
+            <div class="text-[10px] text-slate-500 font-mono mt-0.5">${escapeHtml(c.id)} • ${escapeHtml(c.district)}, ${escapeHtml(c.state)}</div>
+          </div>
+          <div>${statusBadge}</div>
         </div>
-        <div class="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-          <div class="${barColor} h-full rounded-full" style="width: ${fillPct}%"></div>
+
+        <div class="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+          <div>
+            <span class="text-[10px] text-slate-400 block">Trade / Batch</span>
+            <span class="font-semibold text-slate-800 text-[11px]">${escapeHtml(c.trade)}</span>
+            <span class="text-[10px] text-slate-500 font-mono block">${escapeHtml(c.active_batch)}</span>
+          </div>
+          <div class="text-right">
+            <span class="text-[10px] text-slate-400 block">Subsidy Status</span>
+            <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">${escapeHtml(c.subsidy_status || 'ACTIVE')}</span>
+          </div>
         </div>
-      </td>
-      <td class="p-3.5">
-        ${statusBadge}
-      </td>
-      <td class="p-3.5">
-        <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-          ${escapeHtml(c.subsidy_status || 'ACTIVE')}
-        </span>
-      </td>
-      <td class="p-3.5 text-right">
-        <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded text-xs transition">
-          Audit & Evidence
+
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="text-slate-600 font-medium">Attendance: <strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)} Students</span>
+            <span class="font-bold text-xs ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
+          </div>
+          <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div class="${barColor} h-full rounded-full transition-all duration-300" style="width: ${fillPct}%"></div>
+          </div>
+        </div>
+
+        <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2.5 rounded-lg text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span>View Audit & Video Evidence</span>
         </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
+      `;
+      mobileContainer.appendChild(card);
+    });
+  }
 
   lucide.createIcons();
 }
@@ -839,11 +928,12 @@ let trackedFaces = [];
 let trackedAssets = [];
 let isDetecting = false;
 let lastDetectionTime = 0;
+let currentFacingMode = 'user';
 
 // Reusable offscreen canvas for mosaic downsampling (guaranteed 100% de-identification)
 const mosaicCanvas = document.createElement('canvas');
-mosaicCanvas.width = 24;
-mosaicCanvas.height = 24;
+mosaicCanvas.width = 20;
+mosaicCanvas.height = 20;
 const mosaicCtx = mosaicCanvas.getContext('2d', { willReadFrequently: true });
 mosaicCtx.imageSmoothingEnabled = false;
 
@@ -855,42 +945,44 @@ const downCtx = downCanvas.getContext('2d', { willReadFrequently: true });
 
 async function preloadCocoModel() {
   const statusEl = document.getElementById('cv-model-status');
-  if (statusEl) statusEl.textContent = 'Loading Edge Vision Models...';
+  if (statusEl) statusEl.textContent = 'Initializing Edge Vision Models...';
   
   try {
     if (typeof blazeface !== 'undefined') {
       blazeModel = await blazeface.load();
       console.log('[Drishti AI] BlazeFace face detector loaded successfully.');
+      if (statusEl) statusEl.textContent = 'BlazeFace 60 FPS Privacy Shield (Active)';
     }
   } catch (e) {
     console.warn('[Drishti AI] BlazeFace load error:', e);
   }
 
+  // Asynchronously load COCO-SSD without blocking camera start
   try {
     if (typeof cocoSsd !== 'undefined') {
-      cocoModel = await cocoSsd.load({ base: 'mobilenet_v2' });
-      console.log('[Drishti AI] COCO-SSD asset detector loaded successfully.');
+      cocoSsd.load({ base: 'lite_mobilenet_v2' })
+        .then(m => {
+          cocoModel = m;
+          console.log('[Drishti AI] COCO-SSD asset detector loaded successfully.');
+        })
+        .catch(() => {
+          cocoSsd.load().then(m => { cocoModel = m; }).catch(() => {});
+        });
     }
   } catch (e) {
     console.warn('[Drishti AI] COCO-SSD load error:', e);
-  }
-
-  if (statusEl) {
-    if (blazeModel) {
-      statusEl.textContent = 'Model: BlazeFace Real-Time Face De-Identifier (Active)';
-    } else {
-      statusEl.textContent = 'Model: Edge Motion & Skin Centroid Tracker (Active)';
-    }
   }
 }
 
 function initCameraSimulator() {
   const btnStartCam = document.getElementById('btn-start-camera');
+  const btnFlipCam = document.getElementById('btn-flip-camera');
   const btnSimClass = document.getElementById('btn-sim-classroom');
   const sliderClaimed = document.getElementById('slider-claimed');
   const btnPushTelemetry = document.getElementById('btn-push-telemetry');
 
   if (btnStartCam) btnStartCam.addEventListener('click', toggleCamera);
+  if (btnFlipCam) btnFlipCam.addEventListener('click', flipCamera);
   if (btnSimClass) btnSimClass.addEventListener('click', runSimulatedFeed);
 
   if (sliderClaimed) {
@@ -901,6 +993,14 @@ function initCameraSimulator() {
   }
 
   if (btnPushTelemetry) btnPushTelemetry.addEventListener('click', pushCameraTelemetry);
+}
+
+async function flipCamera() {
+  currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+  if (isCameraRunning) {
+    await toggleCamera();
+    await toggleCamera();
+  }
 }
 
 async function toggleCamera() {
@@ -921,40 +1021,73 @@ async function toggleCamera() {
     trackedFaces = [];
     trackedAssets = [];
     placeholder.classList.remove('hidden');
-    btn.innerHTML = `<i data-lucide="video" class="w-4 h-4"></i><span>Start Laptop Camera</span>`;
+    btn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+    btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    btn.innerHTML = `<i data-lucide="video" class="w-4 h-4"></i><span id="btn-start-camera-text">Start Camera</span>`;
     lucide.createIcons();
     return;
   }
 
   try {
-    webcamStream = await navigator.mediaDevices.getUserMedia({
+    const constraints = {
       video: {
+        facingMode: currentFacingMode,
         width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'user'
-      }
-    });
+        height: { ideal: 480 }
+      },
+      audio: false
+    };
+
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (conErr) {
+      console.warn('Strict constraints failed, falling back to basic video:', conErr);
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+
     video.srcObject = webcamStream;
-    video.play();
+    video.muted = true;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    await video.play();
     isCameraRunning = true;
 
-    // Instant-On Privacy Shield: Place initial de-identification box immediately on frame 1
+    // Await actual video sensor dimensions for 1:1 pixel scaling
+    await new Promise(resolve => {
+      if (video.videoWidth > 0) resolve();
+      else {
+        video.onloadedmetadata = () => resolve();
+        setTimeout(resolve, 600);
+      }
+    });
+
+    const canvas = document.getElementById('camera-canvas');
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    canvas.width = vw;
+    canvas.height = vh;
+
+    // Instant-On Frame-1 Privacy Shield: Centered on actual canvas dimensions
+    const initW = canvas.width * 0.32;
+    const initH = initW * 1.25;
     trackedFaces = [{
-      x: 230,
-      y: 80,
-      w: 180,
-      h: 210,
-      targetX: 230,
-      targetY: 80,
-      targetW: 180,
-      targetH: 210,
+      x: (canvas.width - initW) / 2,
+      y: canvas.height * 0.15,
+      w: initW,
+      h: initH,
+      targetX: (canvas.width - initW) / 2,
+      targetY: canvas.height * 0.15,
+      targetW: initW,
+      targetH: initH,
       confidence: 0.99,
       lastSeen: Date.now()
     }];
     detectedPeopleCount = 1;
 
     placeholder.classList.add('hidden');
-    btn.innerHTML = `<i data-lucide="video-off" class="w-4 h-4"></i><span>Stop Camera</span>`;
+    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+    btn.classList.add('bg-rose-600', 'hover:bg-rose-700');
+    btn.innerHTML = `<i data-lucide="video-off" class="w-4 h-4"></i><span id="btn-start-camera-text">Stop Camera</span>`;
     lucide.createIcons();
 
     startVisionInferenceLoop();
@@ -973,41 +1106,50 @@ function startVisionInferenceLoop() {
   const canvas = document.getElementById('camera-canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-  canvas.width = 640;
-  canvas.height = 480;
+  if (video.videoWidth > 0) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  } else {
+    canvas.width = 640;
+    canvas.height = 480;
+  }
 
-  // Background Async Detection (runs every 60-80ms without blocking 60 FPS video render)
+  // Background Async Detection (runs every 45-60ms without blocking 60 FPS video render)
   async function runAsyncDetection() {
     if (!isCameraRunning) return;
     if (video.readyState < 2 || isDetecting) return;
 
     isDetecting = true;
     try {
-      let detectedBoxes = [];
-      const vidW = video.videoWidth || 640;
-      const vidH = video.videoHeight || 480;
-      const scaleX = canvas.width / vidW;
-      const scaleY = canvas.height / vidH;
+      if (video.videoWidth > 0 && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
 
-      // Priority 1: BlazeFace Face Detector (Scaled to canvas coordinate space)
+      let detectedBoxes = [];
+
+      // Priority 1: BlazeFace Face Detector evaluated directly on canvas (1:1 pixel coordinates)
       if (blazeModel) {
         try {
-          const predictions = await blazeModel.estimateFaces(video, false);
+          const predictions = await blazeModel.estimateFaces(canvas, false);
           if (predictions && predictions.length > 0) {
             detectedBoxes = predictions.map(p => {
-              const startX = p.topLeft[0] * scaleX;
-              const startY = p.topLeft[1] * scaleY;
-              const endX = p.bottomRight[0] * scaleX;
-              const endY = p.bottomRight[1] * scaleY;
+              const startX = p.topLeft[0];
+              const startY = p.topLeft[1];
+              const endX = p.bottomRight[0];
+              const endY = p.bottomRight[1];
               
               const rawW = endX - startX;
               const rawH = endY - startY;
-              const w = Math.max(90, rawW * 1.25);
-              const h = Math.max(105, rawH * 1.35);
+              // Expand boundary to comfortably cover head, forehead, ears and chin
+              const expandX = rawW * 0.35;
+              const expandY = rawH * 0.45;
+              const w = Math.max(70, rawW + expandX * 2);
+              const h = Math.max(85, rawH + expandY * 2);
               
               return {
-                x: Math.max(10, Math.min(canvas.width - w - 10, startX - (w - rawW) / 2)),
-                y: Math.max(10, Math.min(canvas.height - h - 10, startY - (h - rawH) * 0.4)),
+                x: Math.max(0, Math.min(canvas.width - w, startX - expandX)),
+                y: Math.max(0, Math.min(canvas.height - h, startY - expandY * 0.9)),
                 w: w,
                 h: h,
                 confidence: p.probability ? p.probability[0] : 0.95
@@ -1019,22 +1161,21 @@ function startVisionInferenceLoop() {
         }
       }
 
-      // Priority 2: Native Browser FaceDetector API (Chromium Hardware Accelerated)
+      // Priority 2: Native Chromium / Android Hardware FaceDetector API
       if (detectedBoxes.length === 0 && 'FaceDetector' in window) {
         try {
           const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 10 });
-          const faces = await detector.detect(video);
+          const faces = await detector.detect(canvas);
           if (faces && faces.length > 0) {
             detectedBoxes = faces.map(f => {
-              const startX = f.boundingBox.x * scaleX;
-              const startY = f.boundingBox.y * scaleY;
-              const rawW = f.boundingBox.width * scaleX;
-              const rawH = f.boundingBox.height * scaleY;
-              const w = rawW * 1.2;
-              const h = rawH * 1.3;
+              const bb = f.boundingBox;
+              const expandX = bb.width * 0.35;
+              const expandY = bb.height * 0.45;
+              const w = Math.max(70, bb.width + expandX * 2);
+              const h = Math.max(85, bb.height + expandY * 2);
               return {
-                x: Math.max(10, startX - (w - rawW) / 2),
-                y: Math.max(10, startY - (h - rawH) * 0.4),
+                x: Math.max(0, Math.min(canvas.width - w, bb.x - expandX)),
+                y: Math.max(0, Math.min(canvas.height - h, bb.y - expandY * 0.9)),
                 w: w,
                 h: h,
                 confidence: 0.95
@@ -1044,29 +1185,29 @@ function startVisionInferenceLoop() {
         } catch (e) {}
       }
 
-      // Priority 3: COCO-SSD (Person Head Region)
-      if (detectedBoxes.length === 0 && cocoModel) {
+      // Priority 3: COCO-SSD (Asset recognition + Person fallback)
+      if (cocoModel) {
         try {
-          const objects = await cocoModel.detect(video);
+          const objects = await cocoModel.detect(canvas);
           const persons = objects.filter(o => o.class === 'person');
-          const assets = objects.filter(o => ['laptop', 'chair', 'cell phone', 'keyboard', 'book'].includes(o.class));
+          const assets = objects.filter(o => ['laptop', 'chair', 'cell phone', 'keyboard', 'book', 'mouse', 'bottle'].includes(o.class));
           trackedAssets = assets.map(a => ({
-            x: a.bbox[0] * scaleX,
-            y: a.bbox[1] * scaleY,
-            w: a.bbox[2] * scaleX,
-            h: a.bbox[3] * scaleY,
+            x: a.bbox[0],
+            y: a.bbox[1],
+            w: a.bbox[2],
+            h: a.bbox[3],
             label: a.class.toUpperCase()
           }));
 
-          if (persons.length > 0) {
+          if (detectedBoxes.length === 0 && persons.length > 0) {
             detectedBoxes = persons.map(p => {
-              const bx = p.bbox[0] * scaleX;
-              const by = p.bbox[1] * scaleY;
-              const bw = p.bbox[2] * scaleX;
-              const bh = p.bbox[3] * scaleY;
+              const bx = p.bbox[0];
+              const by = p.bbox[1];
+              const bw = p.bbox[2];
+              const bh = p.bbox[3];
               return {
-                x: bx + bw * 0.1,
-                y: by,
+                x: Math.max(0, bx + bw * 0.1),
+                y: Math.max(0, by),
                 w: bw * 0.8,
                 h: bh * 0.45,
                 confidence: p.score
@@ -1076,9 +1217,9 @@ function startVisionInferenceLoop() {
         } catch (e) {}
       }
 
-      // Priority 4: Invariant Skin & Motion Centroid Tracker
+      // Priority 4: Invariant Skin Tone & Motion Centroid Tracker
       if (detectedBoxes.length === 0) {
-        const skinCentroid = detectSkinToneCentroid(video);
+        const skinCentroid = detectSkinToneCentroid(canvas);
         if (skinCentroid) {
           detectedBoxes = [skinCentroid];
         }
@@ -1116,17 +1257,19 @@ function startVisionInferenceLoop() {
           trackedFaces = trackedFaces.slice(0, detectedBoxes.length);
         }
       } else {
-        // If detection dropped momentarily, KEEP existing face to prevent flicker
-        if (trackedFaces.length === 0) {
+        // Prevent flicker: keep tracking previous face position if brief drop (<3 sec)
+        if (trackedFaces.length === 0 || (Date.now() - trackedFaces[0].lastSeen > 3000)) {
+          const defW = canvas.width * 0.32;
+          const defH = defW * 1.25;
           trackedFaces = [{
-            x: 230,
-            y: 80,
-            w: 180,
-            h: 210,
-            targetX: 230,
-            targetY: 80,
-            targetW: 180,
-            targetH: 210,
+            x: (canvas.width - defW) / 2,
+            y: canvas.height * 0.15,
+            w: defW,
+            h: defH,
+            targetX: (canvas.width - defW) / 2,
+            targetY: canvas.height * 0.15,
+            targetW: defW,
+            targetH: defH,
             confidence: 0.9,
             lastSeen: Date.now()
           }];
@@ -1145,7 +1288,7 @@ function startVisionInferenceLoop() {
     } finally {
       isDetecting = false;
       if (isCameraRunning) {
-        setTimeout(runAsyncDetection, 60);
+        setTimeout(runAsyncDetection, 50);
       }
     }
   }
@@ -1178,7 +1321,7 @@ function startVisionInferenceLoop() {
 
         if (bw > 10 && bh > 10) {
           // LAYER 1: Irreversible Mosaic Pixelation (DPDP Act 2023)
-          mosaicCtx.drawImage(canvas, bx, by, bw, bh, 0, 0, 24, 24);
+          mosaicCtx.drawImage(canvas, bx, by, bw, bh, 0, 0, mosaicCanvas.width, mosaicCanvas.height);
 
           ctx.save();
           ctx.beginPath();
@@ -1187,17 +1330,17 @@ function startVisionInferenceLoop() {
 
           // Render pixelated blocks
           ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(mosaicCanvas, 0, 0, 24, 24, bx, by, bw, bh);
+          ctx.drawImage(mosaicCanvas, 0, 0, mosaicCanvas.width, mosaicCanvas.height, bx, by, bw, bh);
 
           // LAYER 2: Frosted Glass Gaussian Smoothing
           try {
             ctx.filter = 'blur(16px)';
-            ctx.drawImage(mosaicCanvas, 0, 0, 24, 24, bx, by, bw, bh);
+            ctx.drawImage(mosaicCanvas, 0, 0, mosaicCanvas.width, mosaicCanvas.height, bx, by, bw, bh);
             ctx.filter = 'none';
           } catch (e) {}
 
           // LAYER 3: Soft Privacy Shield Tint
-          ctx.fillStyle = 'rgba(16, 185, 129, 0.18)';
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.20)';
           ctx.fill();
 
           ctx.restore();
@@ -1211,10 +1354,10 @@ function startVisionInferenceLoop() {
           ctx.stroke();
 
           // LAYER 5: Trainee De-Identified Privacy Shield Badge
-          const badgeW = 168;
-          const badgeH = 22;
+          const badgeW = Math.min(168, Math.max(115, rx * 2.1));
+          const badgeH = 20;
           const badgeX = cx - badgeW / 2;
-          const badgeY = Math.max(8, cy - ry - 26);
+          const badgeY = Math.max(6, cy - ry - 24);
 
           ctx.fillStyle = '#10B981';
           ctx.beginPath();
@@ -1226,7 +1369,7 @@ function startVisionInferenceLoop() {
           ctx.fill();
 
           ctx.fillStyle = '#064E3B';
-          ctx.font = 'bold 11px sans-serif';
+          ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('🔒 TRAINEE [DE-IDENTIFIED]', cx, badgeY + badgeH / 2);
@@ -1261,9 +1404,11 @@ function startVisionInferenceLoop() {
 // -------------------------------------------------------------
 // LIGHTING-INVARIANT SKIN-TONE & MOTION CENTROID TRACKER
 // -------------------------------------------------------------
-function detectSkinToneCentroid(video) {
+function detectSkinToneCentroid(canvas) {
   try {
-    downCtx.drawImage(video, 0, 0, downCanvas.width, downCanvas.height);
+    downCanvas.width = 160;
+    downCanvas.height = Math.max(100, Math.round(160 * (canvas.height / canvas.width)));
+    downCtx.drawImage(canvas, 0, 0, downCanvas.width, downCanvas.height);
     const imgData = downCtx.getImageData(0, 0, downCanvas.width, downCanvas.height);
     const data = imgData.data;
 
@@ -1271,13 +1416,13 @@ function detectSkinToneCentroid(video) {
     let sumY = 0;
     let count = 0;
 
-    const scaleX = 640 / downCanvas.width;
-    const scaleY = 480 / downCanvas.height;
+    const scaleX = canvas.width / downCanvas.width;
+    const scaleY = canvas.height / downCanvas.height;
 
     // Scan upper 70% of screen (head/face area)
     const maxY = Math.floor(downCanvas.height * 0.70);
-    for (let y = 10; y < maxY; y += 3) {
-      for (let x = 10; x < downCanvas.width - 10; x += 3) {
+    for (let y = 6; y < maxY; y += 2) {
+      for (let x = 6; x < downCanvas.width - 6; x += 2) {
         const i = (y * downCanvas.width + x) * 4;
         const r = data[i];
         const g = data[i + 1];
@@ -1288,7 +1433,7 @@ function detectSkinToneCentroid(video) {
         if (sum > 60) {
           const nr = r / sum;
           const ng = g / sum;
-          if (nr > 0.34 && nr < 0.60 && ng > 0.25 && ng < 0.40) {
+          if (nr > 0.35 && nr < 0.60 && ng > 0.25 && ng < 0.40) {
             sumX += x;
             sumY += y;
             count++;
@@ -1297,18 +1442,18 @@ function detectSkinToneCentroid(video) {
       }
     }
 
-    if (count > 15) {
+    if (count > 20) {
       const avgX = (sumX / count) * scaleX;
       const avgY = (sumY / count) * scaleY;
-      const w = 170;
-      const h = 200;
+      const w = canvas.width * 0.30;
+      const h = w * 1.25;
 
       return {
-        x: Math.max(20, Math.min(640 - w - 20, avgX - w / 2)),
-        y: Math.max(20, Math.min(480 - h - 20, avgY - h / 2)),
+        x: Math.max(10, Math.min(canvas.width - w - 10, avgX - w / 2)),
+        y: Math.max(10, Math.min(canvas.height - h - 10, avgY - h / 2)),
         w: w,
         h: h,
-        confidence: 0.9
+        confidence: 0.90
       };
     }
   } catch (e) {}
@@ -1417,26 +1562,6 @@ function updateInjectCalculations() {
   }
 }
 
-function updateInjectCalculations() {
-  const claimed = Number(document.getElementById('slider-claimed').value);
-  const detected = detectedPeopleCount;
-  const variance = claimed > 0 ? Math.max(0, ((claimed - detected) / claimed) * 100) : 0;
-
-  document.getElementById('inject-detected').textContent = `${detected} Students`;
-  document.getElementById('inject-variance').textContent = `${variance.toFixed(1)}% Deficit`;
-
-  const statusBadge = document.getElementById('inject-status');
-  if (variance >= 40) {
-    statusBadge.textContent = 'CRITICAL RED DEFICIT';
-    statusBadge.className = 'font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px]';
-  } else if (variance >= 15) {
-    statusBadge.textContent = 'AMBER OBSERVATION';
-    statusBadge.className = 'font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px]';
-  } else {
-    statusBadge.textContent = 'GREEN COMPLIANT';
-    statusBadge.className = 'font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]';
-  }
-}
 
 async function pushCameraTelemetry() {
   const claimed = Number(document.getElementById('slider-claimed').value);
