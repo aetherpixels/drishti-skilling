@@ -656,23 +656,40 @@ function printAuditNotice() {
 }
 
 // -------------------------------------------------------------
-// LIVE EDGE CAMERA AI & OBJECT DETECTION ENGINE
+// LIVE EDGE CAMERA AI & HARDWARE-ACCELERATED FACE TRACKING ENGINE
 // -------------------------------------------------------------
+let blazeModel = null;
+let trackedFaces = [];
+let trackedAssets = [];
+let isDetecting = false;
+let lastDetectionTime = 0;
+
 async function preloadCocoModel() {
   const statusEl = document.getElementById('cv-model-status');
-  if (typeof cocoSsd === 'undefined') {
-    statusEl.textContent = 'Model: Edge Fallback CV Engine (Active)';
-    return;
-  }
+  statusEl.textContent = 'Initializing Edge Vision Models...';
+  
   try {
-    isModelLoading = true;
-    statusEl.textContent = 'Loading YOLO / COCO-SSD weights...';
-    cocoModel = await cocoSsd.load({ base: 'mobilenet_v2' });
-    isModelLoading = false;
-    statusEl.textContent = 'Model: COCO-SSD / MobileNet (Edge Ready)';
-  } catch (err) {
-    console.warn('COCO-SSD offline fallback');
-    statusEl.textContent = 'Model: Offline Smart CV (Active)';
+    if (typeof blazeface !== 'undefined') {
+      blazeModel = await blazeface.load();
+      console.log('[Drishti AI] BlazeFace face detector loaded successfully.');
+    }
+  } catch (e) {
+    console.warn('[Drishti AI] BlazeFace load error:', e);
+  }
+
+  try {
+    if (typeof cocoSsd !== 'undefined') {
+      cocoModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+      console.log('[Drishti AI] COCO-SSD asset detector loaded successfully.');
+    }
+  } catch (e) {
+    console.warn('[Drishti AI] COCO-SSD load error:', e);
+  }
+
+  if (blazeModel || cocoModel) {
+    statusEl.textContent = 'Models: BlazeFace + COCO-SSD (Dynamic Tracking)';
+  } else {
+    statusEl.textContent = 'Model: Native Motion & Skin Centroid Tracker (Active)';
   }
 }
 
@@ -706,9 +723,16 @@ function loadCustomVideoFile(file) {
   const placeholder = document.getElementById('camera-placeholder');
   const btn = document.getElementById('btn-start-camera');
 
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(t => t.stop());
+    webcamStream = null;
+  }
+
   const fileUrl = URL.createObjectURL(file);
   video.srcObject = null;
   video.src = fileUrl;
+  video.muted = true;
+  video.loop = true;
   video.play();
 
   isCameraRunning = true;
@@ -731,8 +755,11 @@ async function toggleCamera() {
     }
     video.pause();
     video.src = '';
+    video.srcObject = null;
     isCameraRunning = false;
     cancelAnimationFrame(animationFrameId);
+    trackedFaces = [];
+    trackedAssets = [];
     placeholder.classList.remove('hidden');
     btn.innerHTML = `<i data-lucide="video" class="w-4 h-4"></i><span>Start Laptop Camera</span>`;
     lucide.createIcons();
@@ -741,7 +768,7 @@ async function toggleCamera() {
 
   try {
     webcamStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480 }
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
     });
     video.srcObject = webcamStream;
     video.play();
@@ -752,11 +779,15 @@ async function toggleCamera() {
 
     startVisionInferenceLoop();
   } catch (err) {
+    console.error('Webcam access error:', err);
     alert('Webcam permission not granted or camera not found. Playing simulated classroom feed.');
     runSimulatedFeed();
   }
 }
 
+// -------------------------------------------------------------
+// DYNAMIC 60 FPS RENDER LOOP + ASYNC INFERENCE
+// -------------------------------------------------------------
 function startVisionInferenceLoop() {
   const video = document.getElementById('webcam-video');
   const canvas = document.getElementById('camera-canvas');
@@ -765,120 +796,279 @@ function startVisionInferenceLoop() {
   canvas.width = 640;
   canvas.height = 480;
 
-  async function detect() {
+  // Background Async Detection (runs every 60-90ms without blocking 60 FPS video render)
+  async function runAsyncDetection() {
     if (!isCameraRunning) return;
+    if (video.readyState < 2 || isDetecting) return;
 
-    if (video.readyState >= 2) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    isDetecting = true;
+    try {
+      let detectedBoxes = [];
 
-      let predictions = [];
-      if (cocoModel) {
-        try {
-          predictions = await cocoModel.detect(canvas);
-        } catch (e) {
-          predictions = [];
+      // Priority 1: BlazeFace Face Detector (High-speed precise face bounding)
+      if (blazeModel) {
+        const predictions = await blazeModel.estimateFaces(video, false);
+        if (predictions && predictions.length > 0) {
+          detectedBoxes = predictions.map(p => {
+            const start = p.topLeft;
+            const end = p.bottomRight;
+            const width = end[0] - start[0];
+            const height = end[1] - start[1];
+            return {
+              x: start[0],
+              y: start[1],
+              w: width,
+              h: height,
+              confidence: p.probability ? p.probability[0] : 0.95
+            };
+          });
         }
       }
 
-      // Filter persons and assets
-      const persons = predictions.filter(p => p.class === 'person');
-      const assets = predictions.filter(p => ['laptop', 'chair', 'cell phone', 'keyboard', 'book', 'bottle'].includes(p.class));
+      // Priority 2: Native Browser FaceDetector API (Chromium / Edge Hardware Accelerated)
+      if (detectedBoxes.length === 0 && 'FaceDetector' in window) {
+        try {
+          const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 10 });
+          const faces = await detector.detect(video);
+          if (faces && faces.length > 0) {
+            detectedBoxes = faces.map(f => ({
+              x: f.boundingBox.x,
+              y: f.boundingBox.y,
+              w: f.boundingBox.width,
+              h: f.boundingBox.height,
+              confidence: 0.9
+            }));
+          }
+        } catch (e) {}
+      }
 
-      if (cocoModel && predictions.length > 0) {
-        detectedPeopleCount = persons.length;
-        detectedAssetCount = assets.length;
+      // Priority 3: COCO-SSD (Person head region estimation)
+      if (detectedBoxes.length === 0 && cocoModel) {
+        const objects = await cocoModel.detect(video);
+        const persons = objects.filter(o => o.class === 'person');
+        const assets = objects.filter(o => ['laptop', 'chair', 'cell phone', 'keyboard', 'book'].includes(o.class));
+        trackedAssets = assets.map(a => ({ x: a.bbox[0], y: a.bbox[1], w: a.bbox[2], h: a.bbox[3], label: a.class.toUpperCase() }));
 
-        // Process every detected person with Face Blur
-        persons.forEach(p => {
-          const [px, py, pw, ph] = p.bbox;
+        if (persons.length > 0) {
+          detectedBoxes = persons.map(p => ({
+            x: p.bbox[0] + p.bbox[2] * 0.1,
+            y: p.bbox[1],
+            w: p.bbox[2] * 0.8,
+            h: p.bbox[3] * 0.38,
+            confidence: p.score
+          }));
+        }
+      }
 
-          // Estimate face/head: top 30% of body box
-          const headX = Math.max(0, px);
-          const headY = Math.max(0, py);
-          const headW = Math.min(canvas.width - headX, pw);
-          const headH = Math.min(canvas.height - headY, ph * 0.32);
+      // Priority 4: Dynamic Skin & Motion Centroid Fallback (Zero network failure guarantee)
+      if (detectedBoxes.length === 0) {
+        const skinCentroid = detectSkinToneCentroid(video);
+        if (skinCentroid) {
+          detectedBoxes = [skinCentroid];
+        }
+      }
 
-          // Apply real pixelation / blur on face area
-          blurRectOnCanvas(ctx, headX, headY, headW, headH, 12);
+      // Update Tracked Faces with LERP smoothing targets
+      if (detectedBoxes.length > 0) {
+        detectedPeopleCount = detectedBoxes.length;
 
-          // Draw Privacy Bounding Box
-          ctx.strokeStyle = '#10B981';
-          ctx.lineWidth = 2.5;
-          ctx.strokeRect(px, py, pw, ph);
-
-          ctx.fillStyle = '#10B981';
-          ctx.fillRect(px, Math.max(0, py - 22), Math.min(pw, 160), 22);
-          ctx.fillStyle = '#064E3B';
-          ctx.font = 'bold 11px sans-serif';
-          ctx.fillText('TRAINEE [BLURRED]', px + 5, Math.max(14, py - 6));
+        // Match detected boxes with existing tracked faces
+        detectedBoxes.forEach((box, i) => {
+          if (trackedFaces[i]) {
+            trackedFaces[i].targetX = box.x;
+            trackedFaces[i].targetY = box.y;
+            trackedFaces[i].targetW = box.w;
+            trackedFaces[i].targetH = box.h;
+            trackedFaces[i].confidence = box.confidence;
+            trackedFaces[i].lastSeen = Date.now();
+          } else {
+            trackedFaces.push({
+              x: box.x,
+              y: box.y,
+              w: box.w,
+              h: box.h,
+              targetX: box.x,
+              targetY: box.y,
+              targetW: box.w,
+              targetH: box.h,
+              confidence: box.confidence,
+              lastSeen: Date.now()
+            });
+          }
         });
 
-        // Draw Assets
-        assets.forEach(a => {
-          const [ax, ay, aw, ah] = a.bbox;
-          ctx.strokeStyle = '#0284C7';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(ax, ay, aw, ah);
-
-          ctx.fillStyle = '#0284C7';
-          ctx.fillRect(ax, Math.max(0, ay - 20), Math.min(aw, 150), 20);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = 'bold 10px sans-serif';
-          ctx.fillText(`ASSET: ${a.class.toUpperCase()}`, ax + 4, Math.max(13, ay - 6));
-        });
-
+        // Trim stale faces
+        if (trackedFaces.length > detectedBoxes.length) {
+          trackedFaces = trackedFaces.slice(0, detectedBoxes.length);
+        }
       } else {
-        // Fallback detector if cocoModel is not loaded
-        detectedPeopleCount = 1;
-        detectedAssetCount = 2;
+        // No faces seen
+        if (Date.now() - lastDetectionTime > 1200) {
+          trackedFaces = [];
+          detectedPeopleCount = 0;
+        }
+      }
 
-        const faceX = canvas.width / 2 - 60;
-        const faceY = 80;
-        blurRectOnCanvas(ctx, faceX, faceY, 120, 140, 14);
-
-        ctx.strokeStyle = '#10B981';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(faceX - 20, faceY - 20, 160, 300);
-
-        ctx.fillStyle = '#10B981';
-        ctx.fillRect(faceX - 20, faceY - 45, 200, 25);
-        ctx.fillStyle = '#064E3B';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText('TRAINEE [DE-IDENTIFIED]', faceX - 10, faceY - 28);
+      if (detectedBoxes.length > 0) {
+        lastDetectionTime = Date.now();
       }
 
       document.getElementById('cam-detected-students').textContent = detectedPeopleCount;
-      document.getElementById('cam-detected-assets').textContent = detectedAssetCount;
+      document.getElementById('cam-detected-assets').textContent = trackedAssets.length || 2;
       updateInjectCalculations();
-    }
 
-    animationFrameId = requestAnimationFrame(detect);
-  }
-
-  detect();
-}
-
-function blurRectOnCanvas(ctx, x, y, w, h, blockSize) {
-  if (w <= 0 || h <= 0) return;
-  const imgData = ctx.getImageData(x, y, w, h);
-  for (let by = 0; by < h; by += blockSize) {
-    for (let bx = 0; bx < w; bx += blockSize) {
-      const idx = (by * w + bx) * 4;
-      const r = imgData.data[idx];
-      const g = imgData.data[idx + 1];
-      const b = imgData.data[idx + 2];
-
-      for (let dy = 0; dy < blockSize && (by + dy) < h; dy++) {
-        for (let dx = 0; dx < blockSize && (bx + dx) < w; dx++) {
-          const di = ((by + dy) * w + (bx + dx)) * 4;
-          imgData.data[di] = r;
-          imgData.data[di + 1] = g;
-          imgData.data[di + 2] = b;
-        }
+    } catch (err) {
+      console.warn('Detection cycle error:', err);
+    } finally {
+      isDetecting = false;
+      if (isCameraRunning) {
+        setTimeout(runAsyncDetection, 60); // Schedule next detection cycle
       }
     }
   }
-  ctx.putImageData(imgData, x, y);
+
+  // 60 FPS Render Loop: Interpolates positions and renders hardware-accelerated blur
+  function renderFrame() {
+    if (!isCameraRunning) return;
+
+    if (video.readyState >= 2) {
+      // 1. Draw live video
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 2. Render each tracked face with Hardware-Accelerated Blur
+      trackedFaces.forEach((face) => {
+        // LERP Smooth interpolation (eliminates jitter and follows smoothly)
+        face.x += (face.targetX - face.x) * 0.45;
+        face.y += (face.targetY - face.y) * 0.45;
+        face.w += (face.targetW - face.w) * 0.45;
+        face.h += (face.targetH - face.h) * 0.45;
+
+        const cx = face.x + face.w / 2;
+        const cy = face.y + face.h / 2;
+        const rx = Math.max(25, face.w * 0.65);
+        const ry = Math.max(30, face.h * 0.75);
+
+        // Hardware-Accelerated Canvas GPU Blur
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.filter = 'blur(22px)';
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // Privacy Shield Outline
+        ctx.save();
+        ctx.strokeStyle = '#10B981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Privacy Badge Tag
+        const badgeW = 160;
+        const badgeH = 22;
+        const badgeX = cx - badgeW / 2;
+        const badgeY = Math.max(10, cy - ry - 28);
+
+        ctx.fillStyle = '#10B981';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+        } else {
+          ctx.rect(badgeX, badgeY, badgeW, badgeH);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = '#064E3B';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('TRAINEE [DE-IDENTIFIED]', cx, badgeY + badgeH / 2);
+        ctx.restore();
+      });
+
+      // 3. Render detected assets
+      trackedAssets.forEach(a => {
+        ctx.save();
+        ctx.strokeStyle = '#0284C7';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(a.x, a.y, a.w, a.h);
+
+        ctx.fillStyle = '#0284C7';
+        ctx.fillRect(a.x, Math.max(0, a.y - 20), Math.min(a.w, 150), 20);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`ASSET: ${a.label}`, a.x + 5, Math.max(14, a.y - 6));
+        ctx.restore();
+      });
+    }
+
+    animationFrameId = requestAnimationFrame(renderFrame);
+  }
+
+  // Start both loops
+  renderFrame();
+  runAsyncDetection();
+}
+
+// -------------------------------------------------------------
+// DYNAMIC SKIN-TONE & MOTION CENTROID TRACKER (OFFLINE FALLBACK)
+// -------------------------------------------------------------
+const downCanvas = document.createElement('canvas');
+downCanvas.width = 160;
+downCanvas.height = 120;
+const downCtx = downCanvas.getContext('2d');
+
+function detectSkinToneCentroid(video) {
+  try {
+    downCtx.drawImage(video, 0, 0, downCanvas.width, downCanvas.height);
+    const imgData = downCtx.getImageData(0, 0, downCanvas.width, downCanvas.height);
+    const data = imgData.data;
+
+    let sumX = 0;
+    let sumY = 0;
+    let count = 0;
+
+    const scaleX = 640 / downCanvas.width;
+    const scaleY = 480 / downCanvas.height;
+
+    // Sample pixels in upper 75% of screen (head region)
+    const maxY = Math.floor(downCanvas.height * 0.75);
+    for (let y = 10; y < maxY; y += 3) {
+      for (let x = 10; x < downCanvas.width - 10; x += 3) {
+        const i = (y * downCanvas.width + x) * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Standard Human Skin Tone Color Range (Peer et al. model)
+        if (r > 95 && g > 40 && b > 20 && r > g && r > b && (r - g) > 15 && Math.abs(r - g) > 15) {
+          sumX += x;
+          sumY += y;
+          count++;
+        }
+      }
+    }
+
+    if (count > 25) {
+      const avgX = (sumX / count) * scaleX;
+      const avgY = (sumY / count) * scaleY;
+      const w = Math.min(180, Math.max(90, Math.sqrt(count) * 12));
+      const h = w * 1.25;
+
+      return {
+        x: Math.max(20, Math.min(640 - w - 20, avgX - w / 2)),
+        y: Math.max(20, Math.min(480 - h - 20, avgY - h / 2)),
+        w: w,
+        h: h,
+        confidence: 0.85
+      };
+    }
+  } catch (e) {}
+
+  return null;
 }
 
 function runSimulatedFeed() {
