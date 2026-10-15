@@ -1,3 +1,5 @@
+/* Drishti-Skilling: Custom Styles & Mobile Responsiveness Enhancements */
+
 /* Custom map pin styles */
 .map-pin {
   width: 24px;
@@ -43,7 +45,32 @@
   color: #FFFFFF;
 }
 
-/* Smooth Scrollbars */
+/* Smooth Touch Scrolling */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbars on tab strips while allowing touch scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Minimum Accessible Touch Target for Mobile Buttons */
+@media (max-width: 640px) {
+  button, .touch-target {
+    min-height: 42px;
+  }
+  #map {
+    height: 320px !important;
+  }
+}
+
+/* Desktop Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

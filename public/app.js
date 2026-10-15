@@ -54,9 +54,147 @@ function playAlertChime(severity) {
   }
 }
 
+// XSS Prevention Helper: HTML Entity Sanitizer
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str !== undefined && str !== null ? str : '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Authentication State (JWT & Role-Based Access Control)
+let authToken = sessionStorage.getItem('drishti_jwt_token') || null;
+let currentOfficer = null;
+
+async function initAuth() {
+  if (!authToken) {
+    updateAuthUI(null);
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      currentOfficer = data.user;
+      updateAuthUI(currentOfficer);
+    } else {
+      handleLogout(false);
+    }
+  } catch (err) {
+    updateAuthUI(null);
+  }
+}
+
+function updateAuthUI(officer) {
+  const btnLogin = document.getElementById('btn-open-login');
+  const badge = document.getElementById('officer-badge');
+  const nameEl = document.getElementById('officer-name-display');
+  const roleEl = document.getElementById('officer-role-display');
+
+  if (officer) {
+    if (btnLogin) btnLogin.classList.add('hidden');
+    if (badge) {
+      badge.classList.remove('hidden');
+      badge.classList.add('flex');
+    }
+    if (nameEl) nameEl.textContent = officer.name;
+    if (roleEl) roleEl.textContent = officer.role;
+  } else {
+    if (btnLogin) btnLogin.classList.remove('hidden');
+    if (badge) {
+      badge.classList.add('hidden');
+      badge.classList.remove('flex');
+    }
+  }
+  lucide.createIcons();
+}
+
+function openLoginModal() {
+  const modal = document.getElementById('login-modal');
+  const errBox = document.getElementById('login-error-container');
+  if (errBox) errBox.classList.add('hidden');
+  if (modal) modal.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeLoginModal() {
+  const modal = document.getElementById('login-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function fillPresetCredentials(type) {
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  if (type === 'auditor') {
+    emailInput.value = 'auditor@msde.gov.in';
+    passInput.value = 'Auditor@MSDE2026!';
+  } else if (type === 'admin') {
+    emailInput.value = 'admin@msde.gov.in';
+    passInput.value = 'Admin@MSDE2026!';
+  }
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errBox = document.getElementById('login-error-container');
+  const errMsg = document.getElementById('login-error-msg');
+  const submitBtn = document.getElementById('btn-login-submit');
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span>Verifying Credentials...</span>';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Login failed');
+    }
+
+    authToken = data.token;
+    currentOfficer = data.user;
+    sessionStorage.setItem('drishti_jwt_token', authToken);
+    updateAuthUI(currentOfficer);
+    closeLoginModal();
+    alert(`Welcome, ${currentOfficer.name}!\nLogged in as ${currentOfficer.role} (${currentOfficer.designation}). You now have access to compliance enforcement actions.`);
+  } catch (err) {
+    if (errBox && errMsg) {
+      errMsg.textContent = err.message;
+      errBox.classList.remove('hidden');
+    }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i data-lucide="log-in" class="w-4 h-4"></i><span>Sign In to Enforcement Console</span>';
+    lucide.createIcons();
+  }
+}
+
+function handleLogout(notify = true) {
+  authToken = null;
+  currentOfficer = null;
+  sessionStorage.removeItem('drishti_jwt_token');
+  updateAuthUI(null);
+  if (notify) {
+    alert('Logged out from MSDE Enforcement Console.');
+  }
+}
+
 // Initialize on DOM Load
 document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
+  initAuth();
   initTabs();
   initMap();
   initControls();
@@ -110,8 +248,24 @@ function initControls() {
   const simIndicator = document.getElementById('sim-indicator');
   const simStatus = document.getElementById('sim-status');
   btnSim.addEventListener('click', async () => {
+    if (!authToken) {
+      alert('Officer Authentication Required!\n\nPlease sign in as an MSDE Auditor or Admin to toggle the autonomous network telemetry pulse.');
+      openLoginModal();
+      return;
+    }
     try {
-      const res = await fetch('/api/simulation/toggle', { method: 'POST' });
+      const res = await fetch('/api/simulation/toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      if (res.status === 401 || res.status === 403) {
+        alert('Access Denied: Officer credentials expired or insufficient role privileges.');
+        openLoginModal();
+        return;
+      }
       const data = await res.json();
       isSimulationActive = data.simulation_active;
       simStatus.textContent = isSimulationActive ? 'ACTIVE' : 'PAUSED';
@@ -289,20 +443,20 @@ function renderCentresTable(centres) {
 
     tr.innerHTML = `
       <td class="p-3.5">
-        <div class="font-bold text-slate-900">${c.name}</div>
-        <div class="text-[10px] text-slate-500 font-mono">${c.id} • ${c.scheme}</div>
+        <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
+        <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.id)} • ${escapeHtml(c.scheme)}</div>
       </td>
       <td class="p-3.5 text-slate-600">
-        <div>${c.district}</div>
-        <div class="text-[10px] text-slate-400">${c.state}</div>
+        <div>${escapeHtml(c.district)}</div>
+        <div class="text-[10px] text-slate-400">${escapeHtml(c.state)}</div>
       </td>
       <td class="p-3.5">
-        <div class="font-semibold text-slate-800">${c.trade}</div>
-        <div class="text-[10px] text-slate-500 font-mono">${c.active_batch}</div>
+        <div class="font-semibold text-slate-800">${escapeHtml(c.trade)}</div>
+        <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.active_batch)}</div>
       </td>
       <td class="p-3.5">
         <div class="flex items-center justify-between text-[11px] mb-1">
-          <span><strong>${c.detected_attendance}</strong> / ${c.claimed_attendance}</span>
+          <span><strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)}</span>
           <span class="text-[10px] font-bold ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
         </div>
         <div class="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden">
@@ -314,11 +468,11 @@ function renderCentresTable(centres) {
       </td>
       <td class="p-3.5">
         <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-          ${c.subsidy_status || 'ACTIVE'}
+          ${escapeHtml(c.subsidy_status || 'ACTIVE')}
         </span>
       </td>
       <td class="p-3.5 text-right">
-        <button onclick="openCentreModal('${c.id}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded text-xs transition">
+        <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded text-xs transition">
           Audit & Evidence
         </button>
       </td>
@@ -351,18 +505,21 @@ function addAlertToStream(a, prepend = true) {
   }`;
 
   const timeStr = new Date(a.timestamp).toLocaleTimeString();
+  const alertTypeClean = escapeHtml(a.type ? a.type.replace('_', ' ') : 'ALERT');
+  const hashPrefix = escapeHtml((a.evidence_hash || '').slice(0, 12));
+
   alertCard.innerHTML = `
     <div class="flex items-center justify-between font-semibold mb-1">
       <span class="text-[11px] font-bold ${a.severity === 'red' ? 'text-rose-700' : 'text-amber-700'}">
-        [${a.type.replace('_', ' ')}]
+        [${alertTypeClean}]
       </span>
-      <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+      <span class="text-[10px] text-slate-400 font-mono">${escapeHtml(timeStr)}</span>
     </div>
-    <div class="font-bold text-slate-900">${a.centre_name}</div>
-    <p class="mt-1 text-slate-600 text-[11px]">${a.message}</p>
+    <div class="font-bold text-slate-900">${escapeHtml(a.centre_name)}</div>
+    <p class="mt-1 text-slate-600 text-[11px]">${escapeHtml(a.message)}</p>
     <div class="mt-2 flex items-center justify-between">
-      <span class="text-[9px] text-slate-400 font-mono">Hash: ${a.evidence_hash.slice(0, 12)}...</span>
-      <button onclick="openCentreModal('${a.centre_id}')" class="text-blue-600 font-bold hover:underline text-[11px]">
+      <span class="text-[9px] text-slate-400 font-mono">Hash: ${hashPrefix}...</span>
+      <button onclick="openCentreModal('${escapeHtml(a.centre_id)}')" class="text-blue-600 font-bold hover:underline text-[11px]">
         View Evidence
       </button>
     </div>
@@ -566,10 +723,19 @@ function createSimulatedEvidenceImage(centre) {
 async function handleAuditAction(action) {
   if (!selectedCentre) return;
 
+  if (!authToken) {
+    alert('MSDE Officer Authentication Required!\n\nPlease sign in with your official credentials (Auditor or Admin) to freeze subsidies, issue legal notices, or clear compliance.');
+    openLoginModal();
+    return;
+  }
+
   try {
     const res = await fetch('/api/actions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
       body: JSON.stringify({
         centre_id: selectedCentre.id,
         action: action,
@@ -577,10 +743,16 @@ async function handleAuditAction(action) {
       })
     });
     const result = await res.json();
-    if (result.success) {
-      alert(`Action '${action}' applied successfully to ${selectedCentre.name}`);
-      openCentreModal(selectedCentre.id);
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        alert(`Access Denied (${result.error || 'UNAUTHORIZED'}):\n${result.message}`);
+        if (res.status === 401) openLoginModal();
+        return;
+      }
+      throw new Error(result.message || 'Action failed');
     }
+    alert(`Audit Action Recorded!\n${result.message || `Action '${action}' applied to ${selectedCentre.name}`}`);
+    openCentreModal(selectedCentre.id);
   } catch (err) {
     alert('Action failed: ' + err.message);
   }
@@ -1155,9 +1327,17 @@ async function pushCameraTelemetry() {
   const snapshotB64 = canvas ? canvas.toDataURL('image/jpeg', 0.5) : null;
 
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-edge-api-key': 'drishti_edge_node_token_secure_lan_iot'
+    };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
     const res = await fetch('/api/telemetry', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify({
         centre_id: 'TC-UP-10492',
         batch_id: 'ELC-2026-B1',

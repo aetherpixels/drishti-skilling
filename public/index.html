@@ -51,40 +51,59 @@
       <div class="flex items-center flex-wrap gap-2 text-xs">
         <button id="btn-toggle-sound" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition text-slate-300">
           <i data-lucide="volume-2" class="w-3.5 h-3.5 text-emerald-400" id="sound-icon"></i>
-          <span>Sound Alerts: <strong class="text-white" id="sound-status">ON</strong></span>
+          <span class="hidden sm:inline">Sound:</span> <strong class="text-white" id="sound-status">ON</strong>
         </button>
 
         <button id="btn-toggle-sim" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition text-slate-300">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="sim-indicator"></span>
-          <span>Live Pulse: <strong class="text-white" id="sim-status">ACTIVE</strong></span>
+          <span class="hidden sm:inline">Pulse:</span> <strong class="text-white" id="sim-status">ACTIVE</strong>
         </button>
 
-        <div class="bg-orange-500/10 border border-orange-500/30 text-orange-400 px-3 py-1.5 rounded-md font-medium flex items-center space-x-1">
+        <div class="hidden md:flex bg-orange-500/10 border border-orange-500/30 text-orange-400 px-3 py-1.5 rounded-md font-medium items-center space-x-1">
           <i data-lucide="lock" class="w-3.5 h-3.5"></i>
-          <span>DPDP Act 2023 Compliant</span>
+          <span>DPDP Act 2023</span>
+        </div>
+
+        <!-- AUTHENTICATION STATUS / BUTTON -->
+        <div id="auth-actions" class="flex items-center">
+          <button id="btn-open-login" onclick="openLoginModal()" class="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-semibold px-3 py-1.5 rounded-md flex items-center space-x-1.5 shadow transition">
+            <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+            <span>Officer Login</span>
+          </button>
+
+          <div id="officer-badge" class="hidden items-center space-x-2 bg-slate-800 border border-emerald-500/50 px-2.5 py-1 rounded-md">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <div class="flex flex-col text-left">
+              <span id="officer-name-display" class="font-bold text-white text-[11px] leading-tight">Dr. S. K. Verma</span>
+              <span id="officer-role-display" class="text-[9px] text-emerald-300 font-mono">AUDITOR</span>
+            </div>
+            <button onclick="handleLogout()" title="Sign Out" class="text-slate-400 hover:text-rose-400 p-1 transition ml-1">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- NAVIGATION TABS -->
-    <div class="bg-slate-800/80 border-t border-slate-700/60 px-4 sm:px-6">
-      <div class="max-w-7xl mx-auto flex space-x-2 overflow-x-auto">
-        <button class="nav-tab active flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm transition" data-tab="tab-dashboard">
+    <!-- NAVIGATION TABS (Mobile Touch-Scroll Optimized) -->
+    <div class="bg-slate-800/80 border-t border-slate-700/60 px-2 sm:px-6">
+      <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar touch-scroll whitespace-nowrap py-1">
+        <button class="nav-tab active flex items-center space-x-1.5 sm:space-x-2 py-2.5 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm transition flex-shrink-0" data-tab="tab-dashboard">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           <span>National Overview & GIS</span>
         </button>
-        <button class="nav-tab flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm text-slate-400 hover:text-white transition" data-tab="tab-camera">
+        <button class="nav-tab flex items-center space-x-1.5 sm:space-x-2 py-2.5 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm text-slate-400 hover:text-white transition flex-shrink-0" data-tab="tab-camera">
           <i data-lucide="camera" class="w-4 h-4"></i>
           <span>Live Edge AI Camera Simulator</span>
-          <span class="bg-orange-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">Interactive</span>
+          <span class="bg-orange-600 text-white text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-bold">Interactive</span>
         </button>
-        <button class="nav-tab flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm text-slate-400 hover:text-white transition" data-tab="tab-bandwidth">
+        <button class="nav-tab flex items-center space-x-1.5 sm:space-x-2 py-2.5 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm text-slate-400 hover:text-white transition flex-shrink-0" data-tab="tab-bandwidth">
           <i data-lucide="wifi" class="w-4 h-4"></i>
           <span>Low-Bandwidth Inspector</span>
         </button>
-        <button class="nav-tab flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm text-slate-400 hover:text-white transition" data-tab="tab-audit">
+        <button class="nav-tab flex items-center space-x-1.5 sm:space-x-2 py-2.5 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm text-slate-400 hover:text-white transition flex-shrink-0" data-tab="tab-audit">
           <i data-lucide="file-check" class="w-4 h-4"></i>
-          <span>Accuracy Assessment & Privacy Charter</span>
+          <span>Accuracy & Privacy Charter</span>
         </button>
       </div>
     </div>
@@ -703,6 +722,90 @@
               Mark Verified & Approved
             </button>
           </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: MSDE OFFICER AUTHENTICATION (RBAC LOGIN) -->
+  <!-- ================================================================= -->
+  <div id="login-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center font-bold text-white shadow">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">MSDE Officer Login</h3>
+            <p class="text-[11px] text-slate-300">National Skill Monitoring & Enforcement Unit</p>
+          </div>
+        </div>
+        <button onclick="closeLoginModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4 text-xs">
+        
+        <div id="login-error-container" class="hidden p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px]">
+          <div class="flex items-center space-x-1.5 font-bold mb-0.5">
+            <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-600"></i>
+            <span>Authentication Failed</span>
+          </div>
+          <p id="login-error-msg">Invalid credentials</p>
+        </div>
+
+        <form id="login-form" onsubmit="handleLoginSubmit(event)" class="space-y-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Official Gov Email Address:</label>
+            <input type="email" id="login-email" required placeholder="auditor@msde.gov.in" 
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs">
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Passphrase / Secret Key:</label>
+            <input type="password" id="login-password" required placeholder="••••••••••••" 
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs">
+          </div>
+
+          <button type="submit" id="btn-login-submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-lg shadow transition flex items-center justify-center space-x-1.5 text-xs">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            <span>Sign In to Enforcement Console</span>
+          </button>
+        </form>
+
+        <!-- Quick-Fill Demonstration Presets -->
+        <div class="pt-3 border-t border-slate-200">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-2">SIH Jury Quick-Fill Credentials:</span>
+          <div class="grid grid-cols-1 gap-1.5">
+            <button onclick="fillPresetCredentials('auditor')" class="w-full text-left p-2 rounded-lg bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-200 transition flex items-center justify-between">
+              <div>
+                <strong class="text-slate-800 block text-[11px]">Dr. S. K. Verma [AUDITOR]</strong>
+                <span class="text-[10px] text-slate-500">auditor@msde.gov.in • Permissions: Freeze / Issue Notice</span>
+              </div>
+              <span class="text-[10px] text-orange-600 font-bold">Use</span>
+            </button>
+
+            <button onclick="fillPresetCredentials('admin')" class="w-full text-left p-2 rounded-lg bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-200 transition flex items-center justify-between">
+              <div>
+                <strong class="text-slate-800 block text-[11px]">Rajesh Sharma, IAS [ADMIN]</strong>
+                <span class="text-[10px] text-slate-500">admin@msde.gov.in • Permissions: Super Admin / System Reset</span>
+              </div>
+              <span class="text-[10px] text-orange-600 font-bold">Use</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-500 flex items-start space-x-1.5">
+          <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5"></i>
+          <span>Secured with native scrypt password hashing, HMAC-SHA256 tokens & sliding-window rate limiting.</span>
         </div>
 
       </div>

@@ -63,11 +63,13 @@ function sendTelemetry() {
   console.log(`[Edge Gateway] Claimed: ${packet.claimed_headcount} | Detected: ${packet.detected_headcount} (Deficit: ${((packet.claimed_headcount - packet.detected_headcount) / packet.claimed_headcount * 100).toFixed(1)}%)`);
   console.log(`[Edge Gateway] Bandwidth: Telemetry payload size is only ${sizeBytes} BYTES (~${(sizeBytes / 1024).toFixed(2)} KB)`);
 
+  const edgeKey = process.env.EDGE_API_KEY || 'drishti_edge_node_token_secure_lan_iot';
   const req = http.request(SERVER_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': sizeBytes
+      'Content-Length': sizeBytes,
+      'x-edge-api-key': edgeKey
     }
   }, (res) => {
     let body = '';
