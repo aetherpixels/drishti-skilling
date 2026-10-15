@@ -362,12 +362,43 @@ function renderMapMarkers(centres) {
 // -------------------------------------------------------------
 // WEBSOCKET & REAL-TIME INGESTION
 // -------------------------------------------------------------
+let wsRetryCount = 0;
+let pollingInterval = null;
+
+function startRestPollingFallback() {
+  if (pollingInterval) return;
+  pollingInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/api/centres');
+      if (res.ok) {
+        centresData = await res.json();
+        updateDashboardUI(centresData);
+      }
+      const alertsRes = await fetch('/api/alerts');
+      if (alertsRes.ok) {
+        const alerts = await alertsRes.json();
+        renderAlerts(alerts);
+      }
+    } catch (e) {}
+  }, 10000);
+}
+
 function initWebSocket() {
+  // If deployed on Vercel or cloud serverless, fallback smoothly to periodic REST polling
+  if (window.location.hostname.includes('vercel.app')) {
+    startRestPollingFallback();
+    return;
+  }
+
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}`;
 
   try {
     ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      wsRetryCount = 0;
+    };
 
     ws.onmessage = (event) => {
       try {
@@ -392,18 +423,28 @@ function initWebSocket() {
           }
         } else if (msg.type === 'SIMULATION_STATUS') {
           isSimulationActive = msg.data.active;
-          document.getElementById('sim-status').textContent = isSimulationActive ? 'ACTIVE' : 'PAUSED';
+          const simEl = document.getElementById('sim-status');
+          if (simEl) simEl.textContent = isSimulationActive ? 'ACTIVE' : 'PAUSED';
         }
       } catch (err) {
         console.error('WebSocket parse error:', err);
       }
     };
 
+    ws.onerror = () => {
+      startRestPollingFallback();
+    };
+
     ws.onclose = () => {
-      setTimeout(initWebSocket, 3000);
+      wsRetryCount++;
+      if (wsRetryCount <= 3) {
+        setTimeout(initWebSocket, 4000);
+      } else {
+        startRestPollingFallback();
+      }
     };
   } catch (e) {
-    console.warn('WebSocket offline mode');
+    startRestPollingFallback();
   }
 }
 
@@ -1590,11 +1631,19 @@ async function pushCameraTelemetry() {
         evidence_b64: snapshotB64
       })
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      let errJson = null;
+      try { errJson = JSON.parse(errText); } catch (e) {}
+      throw new Error(errJson?.message || errJson?.error || `Server HTTP ${res.status}: ${errText.slice(0, 100)}`);
+    }
+
     const result = await res.json();
     alert(`Telemetry Synchronized!\n\nPayload Size: ${result.telemetry_payload_bytes} Bytes\nDiscrepancy: ${result.discrepancy_rate}%\nStatus: ${result.centre_status.toUpperCase()}`);
     
     // Switch to dashboard tab to show live alert
-    document.querySelector('[data-tab="tab-dashboard"]').click();
+    switchTab('tab-dashboard');
+    fetchInitialData();
   } catch (err) {
     alert('Failed to send telemetry: ' + err.message);
   }

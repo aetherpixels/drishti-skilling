@@ -197,7 +197,7 @@ function corsMiddleware(req, res, next) {
     const isAllowed = ALLOWED_ORIGINS.some(allowed => 
       allowed === origin || 
       (allowed.includes('*') && origin.endsWith(allowed.replace('*', '')))
-    );
+    ) || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
 
     if (isAllowed || process.env.NODE_ENV !== 'production') {
       res.setHeader('Access-Control-Allow-Origin', origin);

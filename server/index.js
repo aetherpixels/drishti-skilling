@@ -437,40 +437,49 @@ wss.on('connection', (ws) => {
 // -------------------------------------------------------------
 // BACKGROUND AUTONOMOUS NETWORK SIMULATOR (PULSES CENTRES)
 // -------------------------------------------------------------
-const simInterval = setInterval(() => {
-  if (!isLiveSimulationRunning || centres.length === 0) return;
+let simInterval = null;
+if (!process.env.VERCEL) {
+  simInterval = setInterval(() => {
+    if (!isLiveSimulationRunning || centres.length === 0) return;
 
-  const randIdx = Math.floor(Math.random() * centres.length);
-  const target = centres[randIdx];
+    const randIdx = Math.floor(Math.random() * centres.length);
+    const target = centres[randIdx];
 
-  const jitter = Math.floor(Math.random() * 3) - 1;
-  const newDetected = Math.max(0, Math.min(target.claimed_attendance, target.detected_attendance + jitter));
-  target.detected_attendance = newDetected;
-  target.discrepancy_rate = Number((((target.claimed_attendance - newDetected) / target.claimed_attendance) * 100).toFixed(1));
-  target.last_sync = new Date().toISOString();
+    const jitter = Math.floor(Math.random() * 3) - 1;
+    const newDetected = Math.max(0, Math.min(target.claimed_attendance, target.detected_attendance + jitter));
+    target.detected_attendance = newDetected;
+    target.discrepancy_rate = Number((((target.claimed_attendance - newDetected) / target.claimed_attendance) * 100).toFixed(1));
+    target.last_sync = new Date().toISOString();
 
-  if (target.discrepancy_rate >= 40.0) {
-    target.status = 'red';
-  } else if (target.discrepancy_rate >= 15.0) {
-    target.status = 'amber';
-  } else {
-    target.status = 'green';
-  }
+    if (target.discrepancy_rate >= 40.0) {
+      target.status = 'red';
+    } else if (target.discrepancy_rate >= 15.0) {
+      target.status = 'amber';
+    } else {
+      target.status = 'green';
+    }
 
-  broadcast('CENTRE_UPDATED', target);
-}, 12000);
+    broadcast('CENTRE_UPDATED', target);
+  }, 12000);
 
-if (simInterval.unref) simInterval.unref();
+  if (simInterval.unref) simInterval.unref();
+}
 
-// Start Server
-server.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(` DRISHTI-SKILLING: MSDE MONITORING SYSTEM IS ONLINE!`);
-  console.log(` Mode: ${process.env.NODE_ENV || 'production'} | Port: ${PORT}`);
-  console.log(` RBAC Protected Routes: /api/actions, /api/reset, /api/simulation/toggle`);
-  console.log(` Edge Node Telemetry Guard: /api/telemetry (HMAC / Edge API Key)`);
-  console.log(` Security Headers & Strict CORS Isolation: ENFORCED`);
-  console.log(`=======================================================`);
-});
+// Start Server (Only if not running inside a serverless lambda like Vercel)
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(` DRISHTI-SKILLING: MSDE MONITORING SYSTEM IS ONLINE!`);
+    console.log(` Mode: ${process.env.NODE_ENV || 'production'} | Port: ${PORT}`);
+    console.log(` RBAC Protected Routes: /api/actions, /api/reset, /api/simulation/toggle`);
+    console.log(` Edge Node Telemetry Guard: /api/telemetry (HMAC / Edge API Key)`);
+    console.log(` Security Headers & Strict CORS Isolation: ENFORCED`);
+    console.log(`=======================================================`);
+  });
+}
 
-module.exports = { app, server };
+// Direct app export for Vercel / serverless runtime compatibility
+module.exports = app;
+module.exports.app = app;
+module.exports.server = server;
+
