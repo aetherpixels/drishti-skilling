@@ -70,6 +70,23 @@
   }
 }
 
+/* Leaflet Stacking Context Isolation (Fix map overlapping sticky header/tabs on scroll) */
+#map,
+.leaflet-container {
+  position: relative !important;
+  z-index: 1 !important;
+  isolation: isolate !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
+}
+
+.leaflet-control {
+  z-index: 10 !important;
+}
+
 /* Desktop Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

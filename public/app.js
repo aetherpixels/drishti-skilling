@@ -13,6 +13,7 @@ let isSimulationActive = true;
 
 // In-Browser Edge AI State
 let isCameraRunning = false;
+let isSimulatedFeedRunning = false;
 let webcamStream = null;
 let cocoModel = null;
 let isModelLoading = false;
@@ -235,6 +236,11 @@ function switchTab(tabId) {
   const activeContent = document.getElementById(tabId);
   if (activeContent) {
     activeContent.classList.remove('hidden');
+  }
+
+  // Auto-stop camera when switching away from camera tab
+  if (tabId !== 'tab-camera' && (isCameraRunning || isSimulatedFeedRunning)) {
+    stopActiveCamera();
   }
 
   // Refresh Leaflet map if dashboard
@@ -1044,29 +1050,92 @@ async function flipCamera() {
   }
 }
 
+function stopActiveCamera() {
+  const video = document.getElementById('webcam-video');
+  const canvas = document.getElementById('camera-canvas');
+  const placeholder = document.getElementById('camera-placeholder');
+  const btn = document.getElementById('btn-start-camera');
+  const btnSim = document.getElementById('btn-sim-classroom');
+  const badgeModel = document.getElementById('camera-badge-model');
+  const badgeShield = document.getElementById('camera-badge-shield');
+  const statsBar = document.getElementById('camera-stats-bar');
+
+  // 1. Release all hardware camera tracks
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(t => t.stop());
+    webcamStream = null;
+  }
+  if (video) {
+    video.pause();
+    video.src = '';
+    video.srcObject = null;
+  }
+
+  isCameraRunning = false;
+  isSimulatedFeedRunning = false;
+  cancelAnimationFrame(animationFrameId);
+  trackedFaces = [];
+  trackedAssets = [];
+
+  // 2. Clear canvas completely to eliminate any frozen video frame or residual blurred face
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  // 3. Reveal pristine idle placeholder interface
+  if (placeholder) {
+    placeholder.classList.remove('hidden');
+  }
+
+  // 4. Hide active streaming overlays & badges
+  if (badgeModel) { badgeModel.classList.add('hidden'); badgeModel.classList.remove('flex'); }
+  if (badgeShield) { badgeShield.classList.add('hidden'); badgeShield.classList.remove('flex'); }
+  if (statsBar) { statsBar.classList.add('hidden'); statsBar.classList.remove('flex'); }
+
+  // 5. Reset Start Camera button styling
+  if (btn) {
+    btn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+    btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    btn.innerHTML = `<i data-lucide="video" class="w-4 h-4"></i><span id="btn-start-camera-text">Start Camera</span>`;
+  }
+
+  // 6. Reset Simulate Classroom button styling
+  if (btnSim) {
+    btnSim.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+    btnSim.classList.add('bg-slate-800', 'hover:bg-slate-900');
+    btnSim.innerHTML = `<i data-lucide="play-circle" class="w-4 h-4"></i><span id="btn-sim-classroom-text">Simulate Classroom</span>`;
+  }
+
+  // 7. Reset detected headcounts & discrepancy calculation to idle standby
+  detectedPeopleCount = 0;
+  detectedAssetCount = 0;
+  const countEl = document.getElementById('cam-detected-students');
+  if (countEl) countEl.textContent = '0';
+  const assetEl = document.getElementById('cam-detected-assets');
+  if (assetEl) assetEl.textContent = '0';
+  updateInjectCalculations();
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
 async function toggleCamera() {
   const video = document.getElementById('webcam-video');
   const placeholder = document.getElementById('camera-placeholder');
   const btn = document.getElementById('btn-start-camera');
 
   if (isCameraRunning) {
-    if (webcamStream) {
-      webcamStream.getTracks().forEach(t => t.stop());
-      webcamStream = null;
-    }
-    video.pause();
-    video.src = '';
-    video.srcObject = null;
-    isCameraRunning = false;
-    cancelAnimationFrame(animationFrameId);
-    trackedFaces = [];
-    trackedAssets = [];
-    placeholder.classList.remove('hidden');
-    btn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
-    btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-    btn.innerHTML = `<i data-lucide="video" class="w-4 h-4"></i><span id="btn-start-camera-text">Start Camera</span>`;
-    lucide.createIcons();
+    stopActiveCamera();
     return;
+  }
+
+  // Stop simulation if it was running
+  if (isSimulatedFeedRunning) {
+    stopActiveCamera();
   }
 
   try {
@@ -1125,7 +1194,15 @@ async function toggleCamera() {
     }];
     detectedPeopleCount = 1;
 
+    // Hide idle placeholder and reveal active streaming overlays
     placeholder.classList.add('hidden');
+    const badgeModel = document.getElementById('camera-badge-model');
+    const badgeShield = document.getElementById('camera-badge-shield');
+    const statsBar = document.getElementById('camera-stats-bar');
+    if (badgeModel) { badgeModel.classList.remove('hidden'); badgeModel.classList.add('flex'); }
+    if (badgeShield) { badgeShield.classList.remove('hidden'); badgeShield.classList.add('flex'); }
+    if (statsBar) { statsBar.classList.remove('hidden'); statsBar.classList.add('flex'); }
+
     btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
     btn.classList.add('bg-rose-600', 'hover:bg-rose-700');
     btn.innerHTML = `<i data-lucide="video-off" class="w-4 h-4"></i><span id="btn-start-camera-text">Stop Camera</span>`;
@@ -1505,18 +1582,40 @@ function detectSkinToneCentroid(canvas) {
 function runSimulatedFeed() {
   const canvas = document.getElementById('camera-canvas');
   const placeholder = document.getElementById('camera-placeholder');
-  const ctx = canvas.getContext('2d');
+  const btnSim = document.getElementById('btn-sim-classroom');
+  const badgeModel = document.getElementById('camera-badge-model');
+  const badgeShield = document.getElementById('camera-badge-shield');
+  const statsBar = document.getElementById('camera-stats-bar');
 
-  if (isCameraRunning && webcamStream) {
-    webcamStream.getTracks().forEach(t => t.stop());
-    webcamStream = null;
-    isCameraRunning = false;
-    cancelAnimationFrame(animationFrameId);
+  // If simulation is already active, clicking toggles it off back to clean idle
+  if (isSimulatedFeedRunning) {
+    stopActiveCamera();
+    return;
   }
 
+  // Stop real webcam if running
+  if (isCameraRunning) {
+    stopActiveCamera();
+  }
+
+  isSimulatedFeedRunning = true;
+  isCameraRunning = false;
+
   placeholder.classList.add('hidden');
+  if (badgeModel) { badgeModel.classList.remove('hidden'); badgeModel.classList.add('flex'); }
+  if (badgeShield) { badgeShield.classList.remove('hidden'); badgeShield.classList.add('flex'); }
+  if (statsBar) { statsBar.classList.remove('hidden'); statsBar.classList.add('flex'); }
+
+  if (btnSim) {
+    btnSim.classList.remove('bg-slate-800', 'hover:bg-slate-900');
+    btnSim.classList.add('bg-rose-600', 'hover:bg-rose-700');
+    btnSim.innerHTML = `<i data-lucide="stop-circle" class="w-4 h-4"></i><span id="btn-sim-classroom-text">Stop Simulation</span>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
   canvas.width = 640;
   canvas.height = 480;
+  const ctx = canvas.getContext('2d');
 
   detectedPeopleCount = 8;
   detectedAssetCount = 10;
@@ -1587,19 +1686,34 @@ function updateInjectCalculations() {
   const detected = detectedPeopleCount;
   const variance = claimed > 0 ? Math.max(0, ((claimed - detected) / claimed) * 100) : 0;
 
-  document.getElementById('inject-detected').textContent = `${detected} Students`;
-  document.getElementById('inject-variance').textContent = `${variance.toFixed(1)}% Deficit`;
-
+  const detectEl = document.getElementById('inject-detected');
+  const varEl = document.getElementById('inject-variance');
   const statusBadge = document.getElementById('inject-status');
-  if (variance >= 40) {
-    statusBadge.textContent = 'CRITICAL RED DEFICIT';
-    statusBadge.className = 'font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px]';
-  } else if (variance >= 15) {
-    statusBadge.textContent = 'AMBER OBSERVATION';
-    statusBadge.className = 'font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px]';
-  } else {
-    statusBadge.textContent = 'GREEN COMPLIANT';
-    statusBadge.className = 'font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]';
+
+  if (!isCameraRunning && !isSimulatedFeedRunning) {
+    if (detectEl) detectEl.textContent = '0 Students (Idle)';
+    if (varEl) varEl.textContent = 'Camera Inactive';
+    if (statusBadge) {
+      statusBadge.textContent = 'STANDBY / IDLE';
+      statusBadge.className = 'font-bold text-slate-600 bg-slate-200 px-2 py-0.5 rounded text-[10px]';
+    }
+    return;
+  }
+
+  if (detectEl) detectEl.textContent = `${detected} Students`;
+  if (varEl) varEl.textContent = `${variance.toFixed(1)}% Deficit`;
+
+  if (statusBadge) {
+    if (variance >= 40) {
+      statusBadge.textContent = 'CRITICAL RED DEFICIT';
+      statusBadge.className = 'font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px]';
+    } else if (variance >= 15) {
+      statusBadge.textContent = 'AMBER OBSERVATION';
+      statusBadge.className = 'font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[10px]';
+    } else {
+      statusBadge.textContent = 'GREEN COMPLIANT';
+      statusBadge.className = 'font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]';
+    }
   }
 }
 
