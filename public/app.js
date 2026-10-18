@@ -29,6 +29,9 @@ function playAlertChime(severity) {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
@@ -132,6 +135,8 @@ function closeLoginModal() {
 function fillPresetCredentials(type) {
   const emailInput = document.getElementById('login-email');
   const passInput = document.getElementById('login-password');
+  const errBox = document.getElementById('login-error-container');
+  if (errBox) errBox.classList.add('hidden');
   if (type === 'auditor') {
     emailInput.value = 'auditor@msde.gov.in';
     passInput.value = 'Auditor@MSDE2026!';
@@ -199,6 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initMap();
   initControls();
+  initModalHandlers();
+  initExportCSV();
   initWebSocket();
   fetchInitialData();
   initCameraSimulator();
@@ -312,6 +319,53 @@ function initControls() {
   }
 }
 
+function initModalHandlers() {
+  const centreModal = document.getElementById('centre-modal');
+  const loginModal = document.getElementById('login-modal');
+
+  if (centreModal) {
+    centreModal.addEventListener('click', (e) => {
+      if (e.target === centreModal) closeModal();
+    });
+  }
+
+  if (loginModal) {
+    loginModal.addEventListener('click', (e) => {
+      if (e.target === loginModal) closeLoginModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closeLoginModal();
+    }
+  });
+}
+
+function initExportCSV() {
+  const btn = document.getElementById('btn-export-csv');
+  if (!btn) return;
+  btn.addEventListener('click', (e) => {
+    if (!centresData || centresData.length === 0) return;
+    e.preventDefault();
+    let csv = 'Centre_ID,Name,State,District,Scheme,Trade,Active_Batch,Claimed_Attendance,Detected_Attendance,Discrepancy_Pct,Status,Subsidy_Status,Monthly_Subsidy_INR\n';
+    centresData.forEach(c => {
+      const name = (c.name || '').replace(/"/g, '""');
+      csv += `"${c.id}","${name}","${c.state}","${c.district}","${c.scheme}","${c.trade}","${c.active_batch}",${Number(c.claimed_attendance)},${Number(c.detected_attendance)},${Number(c.discrepancy_rate)},"${c.status}","${c.subsidy_status || 'ACTIVE'}",${Number(c.monthly_subsidy || 0)}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MSDE_Drishti_Audit_Register_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+}
+
 // -------------------------------------------------------------
 // LEAFLET GIS MAP
 // -------------------------------------------------------------
@@ -331,8 +385,7 @@ function resetMapView() {
 }
 
 function renderMapMarkers(centres) {
-  Object.values(mapMarkers).forEach(m => map.removeLayer(m));
-  mapMarkers = {};
+  if (!map || typeof L === 'undefined') return;
 
   centres.forEach(c => {
     const iconClass = c.status === 'green' ? 'green' : (c.status === 'amber' ? 'amber' : 'red');
@@ -343,25 +396,32 @@ function renderMapMarkers(centres) {
       iconAnchor: [12, 12]
     });
 
-    const marker = L.marker([c.lat, c.lng], { icon: customIcon }).addTo(map);
-    marker.bindPopup(`
+    const popupHtml = `
       <div class="text-xs font-sans p-1">
-        <strong class="text-slate-900 block text-sm">${c.name}</strong>
-        <span class="text-slate-500 block">${c.district}, ${c.state}</span>
+        <strong class="text-slate-900 block text-sm">${escapeHtml(c.name)}</strong>
+        <span class="text-slate-500 block">${escapeHtml(c.district)}, ${escapeHtml(c.state)}</span>
         <div class="mt-2 pt-1 border-t border-slate-200">
-          <div>Trade: <strong>${c.trade}</strong></div>
-          <div>Claimed: <strong>${c.claimed_attendance}</strong> | Detected: <strong>${c.detected_attendance}</strong></div>
+          <div>Trade: <strong>${escapeHtml(c.trade)}</strong></div>
+          <div>Claimed: <strong>${Number(c.claimed_attendance)}</strong> | Detected: <strong>${Number(c.detected_attendance)}</strong></div>
           <div class="mt-1 font-bold ${c.status === 'green' ? 'text-emerald-600' : (c.status === 'amber' ? 'text-amber-600' : 'text-rose-600')}">
-            Status: ${c.status.toUpperCase()} (${c.discrepancy_rate}% Deficit)
+            Status: ${escapeHtml(c.status.toUpperCase())} (${Number(c.discrepancy_rate)}% Deficit)
           </div>
         </div>
-        <button onclick="openCentreModal('${c.id}')" class="mt-2 w-full bg-blue-600 text-white font-bold py-1 px-2 rounded text-[11px] hover:bg-blue-700 transition">
+        <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="mt-2 w-full bg-blue-600 text-white font-bold py-1 px-2 rounded text-[11px] hover:bg-blue-700 transition">
           Inspect & Audit
         </button>
       </div>
-    `);
+    `;
 
-    mapMarkers[c.id] = marker;
+    if (mapMarkers[c.id]) {
+      mapMarkers[c.id].setIcon(customIcon);
+      mapMarkers[c.id].setLatLng([c.lat, c.lng]);
+      mapMarkers[c.id].setPopupContent(popupHtml);
+    } else {
+      const marker = L.marker([c.lat, c.lng], { icon: customIcon }).addTo(map);
+      marker.bindPopup(popupHtml);
+      mapMarkers[c.id] = marker;
+    }
   });
 }
 
@@ -503,7 +563,13 @@ function renderCentresTable(centres) {
   const filter = filterSelect ? filterSelect.value : 'all';
 
   let filtered = centres.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(search) || c.id.toLowerCase().includes(search) || c.trade.toLowerCase().includes(search);
+    const s = search.trim();
+    const matchSearch = !s || 
+      (c.name || '').toLowerCase().includes(s) || 
+      (c.id || '').toLowerCase().includes(s) || 
+      (c.trade || '').toLowerCase().includes(s) ||
+      (c.district || '').toLowerCase().includes(s) ||
+      (c.state || '').toLowerCase().includes(s);
     const matchStatus = filter === 'all' || c.status === filter;
     return matchSearch && matchStatus;
   });
@@ -511,113 +577,121 @@ function renderCentresTable(centres) {
   // 1. Populate Desktop Table Rows
   if (tbody) {
     tbody.innerHTML = '';
-    filtered.forEach(c => {
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-normal">No training centres found matching your filter criteria.</td></tr>';
+    } else {
+      filtered.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
 
-      const statusBadge = c.status === 'green' 
-        ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
-        : (c.status === 'amber'
-          ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
-          : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
+        const statusBadge = c.status === 'green' 
+          ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
+          : (c.status === 'amber'
+            ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
+            : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
 
-      const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
-      const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
+        const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
+        const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
 
-      tr.innerHTML = `
-        <td class="p-3.5">
-          <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
-          <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.id)} • ${escapeHtml(c.scheme)}</div>
-        </td>
-        <td class="p-3.5 text-slate-600">
-          <div>${escapeHtml(c.district)}</div>
-          <div class="text-[10px] text-slate-400">${escapeHtml(c.state)}</div>
-        </td>
-        <td class="p-3.5">
-          <div class="font-semibold text-slate-800">${escapeHtml(c.trade)}</div>
-          <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.active_batch)}</div>
-        </td>
-        <td class="p-3.5">
-          <div class="flex items-center justify-between text-[11px] mb-1">
-            <span><strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)}</span>
-            <span class="text-[10px] font-bold ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
-          </div>
-          <div class="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-            <div class="${barColor} h-full rounded-full" style="width: ${fillPct}%"></div>
-          </div>
-        </td>
-        <td class="p-3.5">
-          ${statusBadge}
-        </td>
-        <td class="p-3.5">
-          <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-            ${escapeHtml(c.subsidy_status || 'ACTIVE')}
-          </span>
-        </td>
-        <td class="p-3.5 text-right">
-          <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded text-xs transition">
-            Audit & Evidence
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+        tr.innerHTML = `
+          <td class="p-3.5">
+            <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
+            <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.id)} • ${escapeHtml(c.scheme)}</div>
+          </td>
+          <td class="p-3.5 text-slate-600">
+            <div>${escapeHtml(c.district)}</div>
+            <div class="text-[10px] text-slate-400">${escapeHtml(c.state)}</div>
+          </td>
+          <td class="p-3.5">
+            <div class="font-semibold text-slate-800">${escapeHtml(c.trade)}</div>
+            <div class="text-[10px] text-slate-500 font-mono">${escapeHtml(c.active_batch)}</div>
+          </td>
+          <td class="p-3.5">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span><strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)}</span>
+              <span class="text-[10px] font-bold ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
+            </div>
+            <div class="w-28 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+              <div class="${barColor} h-full rounded-full" style="width: ${fillPct}%"></div>
+            </div>
+          </td>
+          <td class="p-3.5">
+            ${statusBadge}
+          </td>
+          <td class="p-3.5">
+            <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+              ${escapeHtml(c.subsidy_status || 'ACTIVE')}
+            </span>
+          </td>
+          <td class="p-3.5 text-right">
+            <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded text-xs transition">
+              Audit & Evidence
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
   }
 
   // 2. Populate Mobile Cards
   if (mobileContainer) {
     mobileContainer.innerHTML = '';
-    filtered.forEach(c => {
-      const card = document.createElement('div');
-      card.className = 'bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2.5';
+    if (filtered.length === 0) {
+      mobileContainer.innerHTML = '<div class="p-6 text-center text-slate-400 bg-white rounded-xl border border-slate-200">No training centres found matching your filter criteria.</div>';
+    } else {
+      filtered.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2.5';
 
-      const statusBadge = c.status === 'green' 
-        ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
-        : (c.status === 'amber'
-          ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
-          : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
+        const statusBadge = c.status === 'green' 
+          ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">COMPLIANT</span>'
+          : (c.status === 'amber'
+            ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">OBSERVATION</span>'
+            : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">CRITICAL DEFICIT</span>');
 
-      const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
-      const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
+        const fillPct = c.claimed_attendance > 0 ? Math.min(100, Math.round((c.detected_attendance / c.claimed_attendance) * 100)) : 0;
+        const barColor = c.status === 'green' ? 'bg-emerald-500' : (c.status === 'amber' ? 'bg-amber-500' : 'bg-rose-500');
 
-      card.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="font-bold text-slate-900 text-sm leading-snug">${escapeHtml(c.name)}</div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">${escapeHtml(c.id)} • ${escapeHtml(c.district)}, ${escapeHtml(c.state)}</div>
+            </div>
+            <div>${statusBadge}</div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+            <div>
+              <span class="text-[10px] text-slate-400 block">Trade / Batch</span>
+              <span class="font-semibold text-slate-800 text-[11px]">${escapeHtml(c.trade)}</span>
+              <span class="text-[10px] text-slate-500 font-mono block">${escapeHtml(c.active_batch)}</span>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-slate-400 block">Subsidy Status</span>
+              <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">${escapeHtml(c.subsidy_status || 'ACTIVE')}</span>
+            </div>
+          </div>
+
           <div>
-            <div class="font-bold text-slate-900 text-sm leading-snug">${escapeHtml(c.name)}</div>
-            <div class="text-[10px] text-slate-500 font-mono mt-0.5">${escapeHtml(c.id)} • ${escapeHtml(c.district)}, ${escapeHtml(c.state)}</div>
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="text-slate-600 font-medium">Attendance: <strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)} Students</span>
+              <span class="font-bold text-xs ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
+            </div>
+            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div class="${barColor} h-full rounded-full transition-all duration-300" style="width: ${fillPct}%"></div>
+            </div>
           </div>
-          <div>${statusBadge}</div>
-        </div>
 
-        <div class="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
-          <div>
-            <span class="text-[10px] text-slate-400 block">Trade / Batch</span>
-            <span class="font-semibold text-slate-800 text-[11px]">${escapeHtml(c.trade)}</span>
-            <span class="text-[10px] text-slate-500 font-mono block">${escapeHtml(c.active_batch)}</span>
-          </div>
-          <div class="text-right">
-            <span class="text-[10px] text-slate-400 block">Subsidy Status</span>
-            <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">${escapeHtml(c.subsidy_status || 'ACTIVE')}</span>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between text-xs mb-1">
-            <span class="text-slate-600 font-medium">Attendance: <strong>${Number(c.detected_attendance)}</strong> / ${Number(c.claimed_attendance)} Students</span>
-            <span class="font-bold text-xs ${c.status === 'green' ? 'text-emerald-700' : (c.status === 'amber' ? 'text-amber-700' : 'text-rose-700')}">${fillPct}%</span>
-          </div>
-          <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div class="${barColor} h-full rounded-full transition-all duration-300" style="width: ${fillPct}%"></div>
-          </div>
-        </div>
-
-        <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2.5 rounded-lg text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
-          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-          <span>View Audit & Video Evidence</span>
-        </button>
-      `;
-      mobileContainer.appendChild(card);
-    });
+          <button onclick="openCentreModal('${escapeHtml(c.id)}')" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2.5 rounded-lg text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            <span>View Audit & Video Evidence</span>
+          </button>
+        `;
+        mobileContainer.appendChild(card);
+      });
+    }
   }
 
   lucide.createIcons();
@@ -741,9 +815,13 @@ async function openCentreModal(centreId) {
 }
 
 function renderModalChart(centre) {
-  const ctx = document.getElementById('modal-chart-canvas').getContext('2d');
+  if (typeof Chart === 'undefined') return;
+  const canvasEl = document.getElementById('modal-chart-canvas');
+  if (!canvasEl) return;
+  const ctx = canvasEl.getContext('2d');
   if (modalChartInstance) {
-    modalChartInstance.destroy();
+    try { modalChartInstance.destroy(); } catch (e) {}
+    modalChartInstance = null;
   }
 
   const times = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00"];
@@ -761,61 +839,66 @@ function renderModalChart(centre) {
     detectedCur
   ];
 
-  modalChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: times,
-      datasets: [
-        {
-          label: 'Portal Claimed Batch Roster',
-          data: claimedLine,
-          borderColor: '#94a3b8',
-          borderDash: [5, 5],
-          backgroundColor: 'transparent',
-          pointRadius: 0,
-          borderWidth: 2
-        },
-        {
-          label: 'AI-Detected Physical Attendance',
-          data: detectedLine,
-          borderColor: centre.status === 'green' ? '#10b981' : (centre.status === 'amber' ? '#f59e0b' : '#ef4444'),
-          backgroundColor: centre.status === 'green' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointBackgroundColor: centre.status === 'green' ? '#10b981' : (centre.status === 'amber' ? '#f59e0b' : '#ef4444'),
-          borderWidth: 2.5
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: { boxWidth: 12, font: { size: 10 } }
-        }
+  try {
+    modalChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [
+          {
+            label: 'Portal Claimed Batch Roster',
+            data: claimedLine,
+            borderColor: '#94a3b8',
+            borderDash: [5, 5],
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            borderWidth: 2
+          },
+          {
+            label: 'AI-Detected Physical Attendance',
+            data: detectedLine,
+            borderColor: centre.status === 'green' ? '#10b981' : (centre.status === 'amber' ? '#f59e0b' : '#ef4444'),
+            backgroundColor: centre.status === 'green' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: centre.status === 'green' ? '#10b981' : (centre.status === 'amber' ? '#f59e0b' : '#ef4444'),
+            borderWidth: 2.5
+          }
+        ]
       },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: Math.max(35, centre.claimed_attendance + 5),
-          ticks: { font: { size: 10 } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { boxWidth: 12, font: { size: 10 } }
+          }
         },
-        x: {
-          ticks: { font: { size: 10 } }
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: Math.max(35, centre.claimed_attendance + 5),
+            ticks: { font: { size: 10 } }
+          },
+          x: {
+            ticks: { font: { size: 10 } }
+          }
         }
       }
-    }
-  });
+    });
+  } catch (err) {
+    console.warn('[Drishti] Chart render error:', err);
+  }
 }
 
 function closeModal() {
-  document.getElementById('centre-modal').classList.add('hidden');
+  const modal = document.getElementById('centre-modal');
+  if (modal) modal.classList.add('hidden');
   selectedCentre = null;
   if (modalChartInstance) {
-    modalChartInstance.destroy();
+    try { modalChartInstance.destroy(); } catch (e) {}
     modalChartInstance = null;
   }
 }
@@ -892,6 +975,7 @@ async function handleAuditAction(action) {
       throw new Error(result.message || 'Action failed');
     }
     alert(`Audit Action Recorded!\n${result.message || `Action '${action}' applied to ${selectedCentre.name}`}`);
+    await fetchInitialData();
     openCentreModal(selectedCentre.id);
   } catch (err) {
     alert('Action failed: ' + err.message);
@@ -1073,6 +1157,7 @@ function stopActiveCamera() {
 
   isCameraRunning = false;
   isSimulatedFeedRunning = false;
+  isDetecting = false;
   cancelAnimationFrame(animationFrameId);
   trackedFaces = [];
   trackedAssets = [];
@@ -1474,7 +1559,7 @@ function startVisionInferenceLoop() {
           // LAYER 5: Trainee De-Identified Privacy Shield Badge
           const badgeW = Math.min(168, Math.max(115, rx * 2.1));
           const badgeH = 20;
-          const badgeX = cx - badgeW / 2;
+          const badgeX = Math.max(4, Math.min(canvas.width - badgeW - 4, cx - badgeW / 2));
           const badgeY = Math.max(6, cy - ry - 24);
 
           ctx.fillStyle = '#10B981';
@@ -1490,7 +1575,7 @@ function startVisionInferenceLoop() {
           ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('🔒 TRAINEE [DE-IDENTIFIED]', cx, badgeY + badgeH / 2);
+          ctx.fillText('🔒 TRAINEE [DE-IDENTIFIED]', badgeX + badgeW / 2, badgeY + badgeH / 2);
           ctx.restore();
         }
       });
@@ -1523,6 +1608,7 @@ function startVisionInferenceLoop() {
 // LIGHTING-INVARIANT SKIN-TONE & MOTION CENTROID TRACKER
 // -------------------------------------------------------------
 function detectSkinToneCentroid(canvas) {
+  if (!canvas || !canvas.width || !canvas.height || canvas.width <= 0 || canvas.height <= 0) return null;
   try {
     downCanvas.width = 160;
     downCanvas.height = Math.max(100, Math.round(160 * (canvas.height / canvas.width)));
@@ -1722,7 +1808,17 @@ async function pushCameraTelemetry() {
   const claimed = Number(document.getElementById('slider-claimed').value);
   const detected = detectedPeopleCount;
   const canvas = document.getElementById('camera-canvas');
-  const snapshotB64 = canvas ? canvas.toDataURL('image/jpeg', 0.5) : null;
+  
+  let snapshotB64 = null;
+  if (canvas && canvas.width > 0 && canvas.height > 0 && (isCameraRunning || isSimulatedFeedRunning)) {
+    try {
+      snapshotB64 = canvas.toDataURL('image/jpeg', 0.5);
+    } catch (e) {}
+  }
+  if (!snapshotB64 || snapshotB64 === 'data:,') {
+    const targetCentre = centresData.find(c => c.id === 'TC-UP-10492') || { id: 'TC-UP-10492', detected_attendance: detected };
+    snapshotB64 = createSimulatedEvidenceImage(targetCentre);
+  }
 
   try {
     const headers = {
