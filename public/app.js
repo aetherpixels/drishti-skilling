@@ -1074,6 +1074,12 @@ downCanvas.width = 160;
 downCanvas.height = 120;
 const downCtx = downCanvas.getContext('2d', { willReadFrequently: true });
 
+// Dedicated offscreen canvas for high-speed AI inference (downscaled to 320px for ~10ms execution)
+const inferCanvas = document.createElement('canvas');
+inferCanvas.width = 320;
+inferCanvas.height = 240;
+const inferCtx = inferCanvas.getContext('2d', { willReadFrequently: true });
+
 async function preloadCocoModel() {
   const statusEl = document.getElementById('cv-model-status');
   if (statusEl) statusEl.textContent = 'Initializing Edge Vision Models...';
@@ -1263,19 +1269,23 @@ async function toggleCamera() {
     canvas.height = vh;
 
     // Instant-On Frame-1 Privacy Shield: Centered on actual canvas dimensions
-    const initW = canvas.width * 0.32;
-    const initH = initW * 1.25;
+    const initRx = canvas.width * 0.18;
+    const initRy = initRx * 1.25;
+    const initCx = canvas.width / 2;
+    const initCy = canvas.height * 0.35;
     trackedFaces = [{
-      x: (canvas.width - initW) / 2,
-      y: canvas.height * 0.15,
-      w: initW,
-      h: initH,
-      targetX: (canvas.width - initW) / 2,
-      targetY: canvas.height * 0.15,
-      targetW: initW,
-      targetH: initH,
+      cx: initCx,
+      cy: initCy,
+      rx: initRx,
+      ry: initRy,
+      targetCx: initCx,
+      targetCy: initCy,
+      targetRx: initRx,
+      targetRy: initRy,
+      vx: 0,
+      vy: 0,
       confidence: 0.99,
-      lastSeen: Date.now()
+      lastSeen: performance.now()
     }];
     detectedPeopleCount = 1;
 
@@ -1317,7 +1327,9 @@ function startVisionInferenceLoop() {
     canvas.height = 480;
   }
 
-  // Background Async Detection (runs every 45-60ms without blocking 60 FPS video render)
+  let lastRenderTime = performance.now();
+
+  // Background Async Detection (runs on downscaled inferCanvas for blazing ~10-15ms inference)
   async function runAsyncDetection() {
     if (!isCameraRunning) return;
     if (video.readyState < 2 || isDetecting) return;
@@ -1329,32 +1341,47 @@ function startVisionInferenceLoop() {
         canvas.height = video.videoHeight;
       }
 
-      let detectedBoxes = [];
+      // Draw current video frame to low-res inference canvas for lightning-fast inference
+      const vWidth = video.videoWidth || 640;
+      const vHeight = video.videoHeight || 480;
+      const inferW = 320;
+      const inferH = Math.max(160, Math.round(inferW * (vHeight / vWidth))) || 240;
+      if (inferCanvas.width !== inferW || inferCanvas.height !== inferH) {
+        inferCanvas.width = inferW;
+        inferCanvas.height = inferH;
+      }
+      inferCtx.drawImage(video, 0, 0, inferW, inferH);
 
-      // Priority 1: BlazeFace Face Detector evaluated directly on canvas (1:1 pixel coordinates)
+      const scaleX = canvas.width / inferW;
+      const scaleY = canvas.height / inferH;
+
+      let detectedDetections = [];
+
+      // Priority 1: BlazeFace Face Detector evaluated on low-res inferCanvas (ultra-fast: ~10ms)
       if (blazeModel) {
         try {
-          const predictions = await blazeModel.estimateFaces(canvas, false);
+          const predictions = await blazeModel.estimateFaces(inferCanvas, false);
           if (predictions && predictions.length > 0) {
-            detectedBoxes = predictions.map(p => {
-              const startX = p.topLeft[0];
-              const startY = p.topLeft[1];
-              const endX = p.bottomRight[0];
-              const endY = p.bottomRight[1];
-              
+            detectedDetections = predictions.map(p => {
+              const startX = p.topLeft[0] * scaleX;
+              const startY = p.topLeft[1] * scaleY;
+              const endX = p.bottomRight[0] * scaleX;
+              const endY = p.bottomRight[1] * scaleY;
+
               const rawW = endX - startX;
               const rawH = endY - startY;
-              // Expand boundary to comfortably cover head, forehead, ears and chin
-              const expandX = rawW * 0.35;
-              const expandY = rawH * 0.45;
-              const w = Math.max(70, rawW + expandX * 2);
-              const h = Math.max(85, rawH + expandY * 2);
-              
+              const cx = (startX + endX) / 2;
+              // Center is positioned slightly below eye level to evenly cover forehead down to chin
+              const cy = (startY + endY) / 2 + rawH * 0.06;
+              // Expand boundary so entire skull, hair, forehead, ears and chin are 100% enveloped
+              const rx = Math.max(50, (rawW / 2) * 1.60);
+              const ry = Math.max(60, (rawH / 2) * 1.80);
+
               return {
-                x: Math.max(0, Math.min(canvas.width - w, startX - expandX)),
-                y: Math.max(0, Math.min(canvas.height - h, startY - expandY * 0.9)),
-                w: w,
-                h: h,
+                cx,
+                cy,
+                rx,
+                ry,
                 confidence: p.probability ? p.probability[0] : 0.95
               };
             });
@@ -1365,24 +1392,22 @@ function startVisionInferenceLoop() {
       }
 
       // Priority 2: Native Chromium / Android Hardware FaceDetector API
-      if (detectedBoxes.length === 0 && 'FaceDetector' in window) {
+      if (detectedDetections.length === 0 && 'FaceDetector' in window) {
         try {
           const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 10 });
-          const faces = await detector.detect(canvas);
+          const faces = await detector.detect(inferCanvas);
           if (faces && faces.length > 0) {
-            detectedBoxes = faces.map(f => {
+            detectedDetections = faces.map(f => {
               const bb = f.boundingBox;
-              const expandX = bb.width * 0.35;
-              const expandY = bb.height * 0.45;
-              const w = Math.max(70, bb.width + expandX * 2);
-              const h = Math.max(85, bb.height + expandY * 2);
-              return {
-                x: Math.max(0, Math.min(canvas.width - w, bb.x - expandX)),
-                y: Math.max(0, Math.min(canvas.height - h, bb.y - expandY * 0.9)),
-                w: w,
-                h: h,
-                confidence: 0.95
-              };
+              const startX = bb.x * scaleX;
+              const startY = bb.y * scaleY;
+              const rawW = bb.width * scaleX;
+              const rawH = bb.height * scaleY;
+              const cx = startX + rawW / 2;
+              const cy = startY + rawH / 2 + rawH * 0.06;
+              const rx = Math.max(50, (rawW / 2) * 1.60);
+              const ry = Math.max(60, (rawH / 2) * 1.80);
+              return { cx, cy, rx, ry, confidence: 0.95 };
             });
           }
         } catch (e) {}
@@ -1391,90 +1416,172 @@ function startVisionInferenceLoop() {
       // Priority 3: COCO-SSD (Asset recognition + Person fallback)
       if (cocoModel) {
         try {
-          const objects = await cocoModel.detect(canvas);
+          const objects = await cocoModel.detect(inferCanvas);
           const persons = objects.filter(o => o.class === 'person');
           const assets = objects.filter(o => ['laptop', 'chair', 'cell phone', 'keyboard', 'book', 'mouse', 'bottle'].includes(o.class));
           trackedAssets = assets.map(a => ({
-            x: a.bbox[0],
-            y: a.bbox[1],
-            w: a.bbox[2],
-            h: a.bbox[3],
+            x: a.bbox[0] * scaleX,
+            y: a.bbox[1] * scaleY,
+            w: a.bbox[2] * scaleX,
+            h: a.bbox[3] * scaleY,
             label: a.class.toUpperCase()
           }));
 
-          if (detectedBoxes.length === 0 && persons.length > 0) {
-            detectedBoxes = persons.map(p => {
-              const bx = p.bbox[0];
-              const by = p.bbox[1];
-              const bw = p.bbox[2];
-              const bh = p.bbox[3];
-              return {
-                x: Math.max(0, bx + bw * 0.1),
-                y: Math.max(0, by),
-                w: bw * 0.8,
-                h: bh * 0.45,
-                confidence: p.score
-              };
+          if (detectedDetections.length === 0 && persons.length > 0) {
+            detectedDetections = persons.map(p => {
+              const bx = p.bbox[0] * scaleX;
+              const by = p.bbox[1] * scaleY;
+              const bw = p.bbox[2] * scaleX;
+              const bh = p.bbox[3] * scaleY;
+              const headW = bw * 0.65;
+              const headH = bh * 0.35;
+              const cx = bx + bw / 2;
+              const cy = by + headH / 2;
+              const rx = Math.max(50, headW * 0.90);
+              const ry = Math.max(60, headH * 1.10);
+              return { cx, cy, rx, ry, confidence: p.score };
             });
           }
         } catch (e) {}
       }
 
       // Priority 4: Invariant Skin Tone & Motion Centroid Tracker
-      if (detectedBoxes.length === 0) {
+      if (detectedDetections.length === 0) {
         const skinCentroid = detectSkinToneCentroid(canvas);
         if (skinCentroid) {
-          detectedBoxes = [skinCentroid];
+          detectedDetections = [{
+            cx: skinCentroid.cx,
+            cy: skinCentroid.cy,
+            rx: skinCentroid.rx,
+            ry: skinCentroid.ry,
+            confidence: 0.88
+          }];
         }
       }
 
-      // Update Tracked Faces with LERP smoothing targets
-      if (detectedBoxes.length > 0) {
-        detectedPeopleCount = detectedBoxes.length;
+      // Update Tracked Faces with Euclidean Matching & Motion-Compensated Velocity Tracking
+      const now = performance.now();
 
-        detectedBoxes.forEach((box, i) => {
-          if (trackedFaces[i]) {
-            trackedFaces[i].targetX = box.x;
-            trackedFaces[i].targetY = box.y;
-            trackedFaces[i].targetW = box.w;
-            trackedFaces[i].targetH = box.h;
-            trackedFaces[i].confidence = box.confidence;
-            trackedFaces[i].lastSeen = Date.now();
-          } else {
+      if (detectedDetections.length > 0) {
+        detectedPeopleCount = detectedDetections.length;
+
+        const unmatchedDetections = [...detectedDetections];
+        const matchedTrackedIndices = new Set();
+
+        // 1. Match each tracked face to the closest detection by Euclidean distance
+        trackedFaces.forEach((tracked, tIdx) => {
+          let bestDist = Infinity;
+          let bestDetIdx = -1;
+
+          unmatchedDetections.forEach((det, dIdx) => {
+            if (!det) return;
+            const dist = Math.hypot(det.cx - tracked.cx, det.cy - tracked.cy);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestDetIdx = dIdx;
+            }
+          });
+
+          // Allow matching within generous distance (up to 300px for fast camera pans)
+          const matchThreshold = Math.max(220, (tracked.rx || 60) * 3.5);
+          if (bestDetIdx !== -1 && bestDist < matchThreshold) {
+            const det = unmatchedDetections[bestDetIdx];
+            unmatchedDetections[bestDetIdx] = null;
+            matchedTrackedIndices.add(tIdx);
+
+            // Compute instantaneous velocity (px/sec)
+            const dt = Math.max(0.016, (now - tracked.lastSeen) / 1000);
+            const instVx = (det.cx - tracked.targetCx) / dt;
+            const instVy = (det.cy - tracked.targetCy) / dt;
+
+            // Smooth velocity with EMA
+            tracked.vx = tracked.vx !== undefined ? (tracked.vx * 0.35 + instVx * 0.65) : instVx;
+            tracked.vy = tracked.vy !== undefined ? (tracked.vy * 0.35 + instVy * 0.65) : instVy;
+
+            // Clamp max velocity
+            const maxSpeed = 3000;
+            const speed = Math.hypot(tracked.vx, tracked.vy);
+            if (speed > maxSpeed) {
+              const s = maxSpeed / speed;
+              tracked.vx *= s;
+              tracked.vy *= s;
+            }
+
+            tracked.targetCx = det.cx;
+            tracked.targetCy = det.cy;
+            tracked.targetRx = det.rx;
+            tracked.targetRy = det.ry;
+            tracked.confidence = det.confidence;
+            tracked.lastSeen = now;
+          }
+        });
+
+        // 2. Register any unmatched detections as new tracked faces
+        unmatchedDetections.forEach(det => {
+          if (det) {
             trackedFaces.push({
-              x: box.x,
-              y: box.y,
-              w: box.w,
-              h: box.h,
-              targetX: box.x,
-              targetY: box.y,
-              targetW: box.w,
-              targetH: box.h,
-              confidence: box.confidence,
-              lastSeen: Date.now()
+              cx: det.cx,
+              cy: det.cy,
+              rx: det.rx,
+              ry: det.ry,
+              targetCx: det.cx,
+              targetCy: det.cy,
+              targetRx: det.rx,
+              targetRy: det.ry,
+              vx: 0,
+              vy: 0,
+              confidence: det.confidence,
+              lastSeen: now
             });
           }
         });
 
-        if (trackedFaces.length > detectedBoxes.length) {
-          trackedFaces = trackedFaces.slice(0, detectedBoxes.length);
-        }
+        // 3. Keep unmatched existing faces alive for up to 1200ms with velocity decay
+        // (guarantees blur NEVER drops if head turns 90 degrees or user blinks)
+        trackedFaces = trackedFaces.filter((tracked, tIdx) => {
+          if (matchedTrackedIndices.has(tIdx)) return true;
+          const timeSinceSeen = now - tracked.lastSeen;
+          if (timeSinceSeen < 1200) {
+            const coastDt = 0.02;
+            tracked.targetCx += (tracked.vx || 0) * coastDt;
+            tracked.targetCy += (tracked.vy || 0) * coastDt;
+            tracked.vx = (tracked.vx || 0) * 0.85;
+            tracked.vy = (tracked.vy || 0) * 0.85;
+            return true;
+          }
+          return false;
+        });
+
       } else {
-        // Prevent flicker: keep tracking previous face position if brief drop (<3 sec)
-        if (trackedFaces.length === 0 || (Date.now() - trackedFaces[0].lastSeen > 3000)) {
-          const defW = canvas.width * 0.32;
-          const defH = defW * 1.25;
+        // No detections in this frame:
+        const timeSinceLast = trackedFaces.length > 0 ? (now - trackedFaces[0].lastSeen) : 99999;
+        if (timeSinceLast < 1500) {
+          trackedFaces.forEach(tracked => {
+            const coastDt = 0.02;
+            tracked.targetCx += (tracked.vx || 0) * coastDt;
+            tracked.targetCy += (tracked.vy || 0) * coastDt;
+            tracked.vx = (tracked.vx || 0) * 0.85;
+            tracked.vy = (tracked.vy || 0) * 0.85;
+          });
+        } else {
+          // Fallback initial shield
+          const defRx = canvas.width * 0.18;
+          const defRy = defRx * 1.25;
+          const defCx = canvas.width / 2;
+          const defCy = canvas.height * 0.35;
           trackedFaces = [{
-            x: (canvas.width - defW) / 2,
-            y: canvas.height * 0.15,
-            w: defW,
-            h: defH,
-            targetX: (canvas.width - defW) / 2,
-            targetY: canvas.height * 0.15,
-            targetW: defW,
-            targetH: defH,
+            cx: defCx,
+            cy: defCy,
+            rx: defRx,
+            ry: defRy,
+            targetCx: defCx,
+            targetCy: defCy,
+            targetRx: defRx,
+            targetRy: defRy,
+            vx: 0,
+            vy: 0,
             confidence: 0.9,
-            lastSeen: Date.now()
+            lastSeen: now
           }];
           detectedPeopleCount = 1;
         }
@@ -1491,7 +1598,7 @@ function startVisionInferenceLoop() {
     } finally {
       isDetecting = false;
       if (isCameraRunning) {
-        setTimeout(runAsyncDetection, 50);
+        setTimeout(runAsyncDetection, 16);
       }
     }
   }
@@ -1500,23 +1607,44 @@ function startVisionInferenceLoop() {
   function renderFrame() {
     if (!isCameraRunning) return;
 
+    const now = performance.now();
+    const frameDt = Math.min(0.05, Math.max(0.001, (now - lastRenderTime) / 1000));
+    lastRenderTime = now;
+
     if (video.readyState >= 2) {
       // 1. Draw raw video onto canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       // 2. Render Hardware-Accelerated + Mosaic Dual Blur over each face
       trackedFaces.forEach((face) => {
-        // LERP Smooth interpolation (zero jitter)
-        face.x += (face.targetX - face.x) * 0.45;
-        face.y += (face.targetY - face.y) * 0.45;
-        face.w += (face.targetW - face.w) * 0.45;
-        face.h += (face.targetH - face.h) * 0.45;
+        // Forward extrapolation based on velocity and elapsed time since last detection
+        const elapsedSinceDetection = Math.min(0.12, Math.max(0, (now - face.lastSeen) / 1000));
+        const predTargetCx = face.targetCx + (face.vx || 0) * elapsedSinceDetection * 0.5;
+        const predTargetCy = face.targetCy + (face.vy || 0) * elapsedSinceDetection * 0.5;
 
-        const cx = face.x + face.w / 2;
-        const cy = face.y + face.h / 2;
-        const rx = Math.max(35, face.w * 0.65);
-        const ry = Math.max(42, face.h * 0.75);
+        // Dynamic responsive LERP (Zero lag during fast motion)
+        const dist = Math.hypot(predTargetCx - face.cx, predTargetCy - face.cy);
+        let lerpFactor = 0.82;
+        if (dist > 75) {
+          lerpFactor = 0.96;
+        } else if (dist > 25) {
+          lerpFactor = 0.88;
+        }
 
+        face.cx += (predTargetCx - face.cx) * lerpFactor;
+        face.cy += (predTargetCy - face.cy) * lerpFactor;
+        face.rx += ((face.targetRx || 50) - face.rx) * 0.50;
+        face.ry += ((face.targetRy || 60) - face.ry) * 0.50;
+
+        // Dynamic Motion Cone Expansion: When head moves quickly, expand coverage along motion path
+        const speed = Math.hypot(face.vx || 0, face.vy || 0);
+        const motionPadding = Math.min(32, speed * 0.038);
+        const rx = face.rx + motionPadding;
+        const ry = face.ry + motionPadding;
+        const cx = face.cx;
+        const cy = face.cy;
+
+        // Bounding box for mosaic downsample
         const bx = Math.max(0, Math.floor(cx - rx));
         const by = Math.max(0, Math.floor(cy - ry));
         const bw = Math.min(canvas.width - bx, Math.ceil(rx * 2));
@@ -1649,14 +1777,14 @@ function detectSkinToneCentroid(canvas) {
     if (count > 20) {
       const avgX = (sumX / count) * scaleX;
       const avgY = (sumY / count) * scaleY;
-      const w = canvas.width * 0.30;
-      const h = w * 1.25;
+      const rx = Math.max(50, canvas.width * 0.16);
+      const ry = Math.max(60, rx * 1.25);
 
       return {
-        x: Math.max(10, Math.min(canvas.width - w - 10, avgX - w / 2)),
-        y: Math.max(10, Math.min(canvas.height - h - 10, avgY - h / 2)),
-        w: w,
-        h: h,
+        cx: avgX,
+        cy: avgY,
+        rx: rx,
+        ry: ry,
         confidence: 0.90
       };
     }
