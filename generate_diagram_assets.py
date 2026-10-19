@@ -10,58 +10,58 @@ os.makedirs('presentation_assets', exist_ok=True)
 # ----------------------------------------------------------------------
 # Helper: Draw vector symbols instead of emojis
 # ----------------------------------------------------------------------
-def draw_icon_badge(ax, x, y, badge_type, color='#0284C7', radius=0.32):
-    circ = Circle((x, y), radius, facecolor=color, edgecolor='white', linewidth=2.0, zorder=4)
+def draw_icon_badge(ax, x, y, badge_type, color='#0284C7', symbol_color='white', radius=0.32):
+    circ = Circle((x, y), radius, facecolor=color, edgecolor=symbol_color if color=='white' else 'white', linewidth=1.8, zorder=4)
     ax.add_patch(circ)
     
-    # Inner symbol in white
+    # Inner symbol in symbol_color
     if badge_type == 'cam':
-        rect = FancyBboxPatch((x - 0.15, y - 0.1), 0.22, 0.2, boxstyle="round,pad=0.02", facecolor='white', zorder=5)
+        rect = FancyBboxPatch((x - 0.15, y - 0.1), 0.22, 0.2, boxstyle="round,pad=0.02", facecolor=symbol_color, zorder=5)
         ax.add_patch(rect)
-        poly = Polygon([[x + 0.08, y - 0.08], [x + 0.18, y - 0.14], [x + 0.18, y + 0.14], [x + 0.08, y + 0.08]], facecolor='white', zorder=5)
+        poly = Polygon([[x + 0.08, y - 0.08], [x + 0.18, y - 0.14], [x + 0.18, y + 0.14], [x + 0.08, y + 0.08]], facecolor=symbol_color, zorder=5)
         ax.add_patch(poly)
     elif badge_type == 'shield':
-        poly = Polygon([[x - 0.14, y + 0.12], [x + 0.14, y + 0.12], [x + 0.14, y - 0.02], [x, y - 0.16], [x - 0.14, y - 0.02]], facecolor='white', zorder=5)
+        poly = Polygon([[x - 0.14, y + 0.12], [x + 0.14, y + 0.12], [x + 0.14, y - 0.02], [x, y - 0.16], [x - 0.14, y - 0.02]], facecolor=symbol_color, zorder=5)
         ax.add_patch(poly)
     elif badge_type == 'zap':
-        poly = Polygon([[x - 0.02, y + 0.16], [x - 0.12, y], [x + 0.02, y], [x - 0.02, y - 0.16], [x + 0.12, y + 0.02], [x - 0.02, y + 0.02]], facecolor='white', zorder=5)
+        poly = Polygon([[x - 0.02, y + 0.16], [x - 0.12, y], [x + 0.02, y], [x - 0.02, y - 0.16], [x + 0.12, y + 0.02], [x - 0.02, y + 0.02]], facecolor=symbol_color, zorder=5)
         ax.add_patch(poly)
     elif badge_type == 'cap':
-        poly = Polygon([[x, y + 0.14], [x + 0.16, y + 0.04], [x, y - 0.06], [x - 0.16, y + 0.04]], facecolor='white', zorder=5)
+        poly = Polygon([[x, y + 0.14], [x + 0.16, y + 0.04], [x, y - 0.06], [x - 0.16, y + 0.04]], facecolor=symbol_color, zorder=5)
         ax.add_patch(poly)
-        rect = patches.Rectangle((x - 0.08, y - 0.12), 0.16, 0.08, facecolor='white', zorder=5)
+        rect = patches.Rectangle((x - 0.08, y - 0.12), 0.16, 0.08, facecolor=symbol_color, zorder=5)
         ax.add_patch(rect)
     elif badge_type == 'users':
-        c1 = Circle((x - 0.06, y + 0.06), 0.06, facecolor='white', zorder=5)
-        c2 = Circle((x + 0.06, y + 0.06), 0.06, facecolor='white', zorder=5)
+        c1 = Circle((x - 0.06, y + 0.06), 0.06, facecolor=symbol_color, zorder=5)
+        c2 = Circle((x + 0.06, y + 0.06), 0.06, facecolor=symbol_color, zorder=5)
         ax.add_patch(c1)
         ax.add_patch(c2)
-        poly = Polygon([[x - 0.14, y - 0.12], [x + 0.14, y - 0.12], [x + 0.1, y - 0.02], [x - 0.1, y - 0.02]], facecolor='white', zorder=5)
+        poly = Polygon([[x - 0.14, y - 0.12], [x + 0.14, y - 0.12], [x + 0.1, y - 0.02], [x - 0.1, y - 0.02]], facecolor=symbol_color, zorder=5)
         ax.add_patch(poly)
     elif badge_type == 'gear':
-        cg = Circle((x, y), 0.13, facecolor='white', zorder=5)
+        cg = Circle((x, y), 0.13, facecolor=symbol_color, zorder=5)
         ci = Circle((x, y), 0.05, facecolor=color, zorder=6)
         ax.add_patch(cg)
         ax.add_patch(ci)
     elif badge_type == 'map':
-        poly = Polygon([[x, y - 0.15], [x + 0.11, y + 0.05], [x - 0.11, y + 0.05]], facecolor='white', zorder=5)
-        cm = Circle((x, y + 0.06), 0.11, facecolor='white', zorder=5)
+        poly = Polygon([[x, y - 0.15], [x + 0.11, y + 0.05], [x - 0.11, y + 0.05]], facecolor=symbol_color, zorder=5)
+        cm = Circle((x, y + 0.06), 0.11, facecolor=symbol_color, zorder=5)
         ci = Circle((x, y + 0.06), 0.04, facecolor=color, zorder=6)
         ax.add_patch(poly)
         ax.add_patch(cm)
         ax.add_patch(ci)
     elif badge_type == 'db':
         for dy in [0.08, 0.0, -0.08]:
-            ell = patches.Ellipse((x, y + dy), 0.22, 0.07, facecolor='white', zorder=5)
+            ell = patches.Ellipse((x, y + dy), 0.22, 0.07, facecolor=symbol_color, zorder=5)
             ax.add_patch(ell)
     elif badge_type == 'lock':
-        rect = FancyBboxPatch((x - 0.1, y - 0.14), 0.2, 0.16, boxstyle="round,pad=0.02", facecolor='white', zorder=5)
+        rect = FancyBboxPatch((x - 0.1, y - 0.14), 0.2, 0.16, boxstyle="round,pad=0.02", facecolor=symbol_color, zorder=5)
         ax.add_patch(rect)
-        arc = patches.Arc((x, y + 0.02), 0.14, 0.16, angle=0, theta1=0, theta2=180, edgecolor='white', lw=2.5, zorder=5)
+        arc = patches.Arc((x, y + 0.02), 0.14, 0.16, angle=0, theta1=0, theta2=180, edgecolor=symbol_color, lw=2.5, zorder=5)
         ax.add_patch(arc)
     else:
         # Default circle tag with letter
-        ax.text(x, y, badge_type[:2].upper(), fontsize=9, fontweight='bold', color='white', va='center', ha='center', zorder=5)
+        ax.text(x, y, badge_type[:2].upper(), fontsize=9, fontweight='bold', color=symbol_color, va='center', ha='center', zorder=5)
 
 # ----------------------------------------------------------------------
 # DIAGRAM 1: SLIDE 2 - "How it addresses the problem" Flowchart
@@ -504,6 +504,247 @@ def render_slide5_roadmap():
     plt.close()
     print("Generated:", out_path)
 
+# ----------------------------------------------------------------------
+# DIAGRAM 7: SLIDE 2 - Exact Reference Style End-to-End Workflow Box
+# ----------------------------------------------------------------------
+def render_slide2_workflow_e2e():
+    fig, ax = plt.subplots(figsize=(10.5, 5.0), dpi=300)
+    ax.set_xlim(0, 10.5)
+    ax.set_ylim(0, 5.0)
+    ax.axis('off')
+
+    # Outer container box
+    outer = FancyBboxPatch((0.15, 0.15), 10.2, 4.7,
+                           boxstyle="round,pad=0.08,rounding_size=0.15",
+                           facecolor='white', edgecolor='#64748B', linewidth=1.5)
+    ax.add_patch(outer)
+
+    # Title at top center
+    ax.text(5.25, 4.58, "DRISHTI-SKILLING End-to-end workflow", fontsize=11.5, fontweight='bold',
+            color='#0F172A', ha='center', va='center')
+
+    # 1. Left Pipeline Column
+    # Start Pill
+    p_start = FancyBboxPatch((0.6, 4.02), 1.6, 0.36, boxstyle="round,pad=0.06,rounding_size=0.18",
+                             facecolor='#F472B6', edgecolor='#DB2777', linewidth=1.2)
+    ax.add_patch(p_start)
+    ax.text(1.4, 4.20, "Start", fontsize=8.5, fontweight='bold', color='white', ha='center', va='center')
+
+    # Small Purple Tag Badge above CCTV
+    b_cctv_tag = FancyBboxPatch((0.65, 3.48), 1.5, 0.28, boxstyle="round,pad=0.04,rounding_size=0.08",
+                                facecolor='#E0E7FF', edgecolor='#6366F1', linewidth=1.0)
+    ax.add_patch(b_cctv_tag)
+    ax.text(1.4, 3.62, "CCTV Ingestion", fontsize=6.8, fontweight='bold', color='#4338CA', ha='center', va='center')
+
+    # CCTV Ingest Box
+    b_cctv = FancyBboxPatch((0.4, 2.45), 2.0, 0.82, boxstyle="round,pad=0.06,rounding_size=0.1",
+                            facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_cctv)
+    ax.text(1.4, 2.86, "Classroom CCTV / RTSP Feed\n(Shop Floor Cam Ingest)", fontsize=7.2,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # Edge AI Box
+    b_edge = FancyBboxPatch((0.4, 1.35), 2.0, 0.82, boxstyle="round,pad=0.06,rounding_size=0.1",
+                            facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_edge)
+    ax.text(1.4, 1.76, "Edge AI Processing:\nBlazeFace De-ID + YOLOv8", fontsize=7.2,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # End / Local Queue Pill (Pink, matching reference End pill)
+    p_end = FancyBboxPatch((0.5, 0.42), 1.8, 0.55, boxstyle="round,pad=0.06,rounding_size=0.18",
+                           facecolor='#F472B6', edgecolor='#DB2777', linewidth=1.2)
+    ax.add_patch(p_end)
+    ax.text(1.4, 0.695, "Local SQLite Buffer\n(72-Hr Queue / End)", fontsize=7.0,
+            fontweight='bold', color='white', ha='center', va='center', linespacing=1.1)
+
+    # 2. Center Column
+    b_sidh = FancyBboxPatch((3.2, 2.75), 2.5, 0.82, boxstyle="round,pad=0.06,rounding_size=0.1",
+                            facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_sidh)
+    ax.text(4.45, 3.16, "Skill India Portal (SIDH)\nTimetable & Roster Match", fontsize=7.5,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # Small Purple Tag Badge
+    b_proc_tag = FancyBboxPatch((3.7, 2.30), 1.5, 0.26, boxstyle="round,pad=0.04,rounding_size=0.08",
+                                facecolor='#E0E7FF', edgecolor='#6366F1', linewidth=1.0)
+    ax.add_patch(b_proc_tag)
+    ax.text(4.45, 2.43, "5-Min Telemetry Sync", fontsize=6.6, fontweight='bold', color='#4338CA', ha='center', va='center')
+
+    b_recon = FancyBboxPatch((3.2, 1.35), 2.5, 0.82, boxstyle="round,pad=0.06,rounding_size=0.1",
+                             facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_recon)
+    ax.text(4.45, 1.76, "Variance Calculation:\n|Claimed - Detected| / Claimed", fontsize=7.2,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # Central Blue Decision Diamond
+    poly_diamond = Polygon([[6.0, 2.5], [6.9, 3.25], [7.8, 2.5], [6.9, 1.75]],
+                           facecolor='#1D4ED8', edgecolor='#1E3A8A', linewidth=2.0, zorder=3)
+    ax.add_patch(poly_diamond)
+    ax.text(6.9, 2.5, "Discrepancy\nRate >= 15%?", fontsize=7.8, fontweight='bold', color='white',
+            ha='center', va='center', zorder=4, linespacing=1.1)
+
+    # 3. Right Column Outcomes
+    # Branch "No": Green Verified
+    b_green = FancyBboxPatch((8.2, 3.35), 2.0, 0.72, boxstyle="round,pad=0.06,rounding_size=0.1",
+                             facecolor='#DCFCE7', edgecolor='#16A34A', linewidth=1.5)
+    ax.add_patch(b_green)
+    ax.text(9.2, 3.71, "Verified Compliant\n(Green Status)", fontsize=7.5,
+            fontweight='bold', color='#166534', ha='center', va='center', linespacing=1.1)
+
+    b_dbt = FancyBboxPatch((8.2, 2.35), 2.0, 0.72, boxstyle="round,pad=0.06,rounding_size=0.1",
+                           facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_dbt)
+    ax.text(9.2, 2.71, "Auto-Disburse DBT\nTraining Subsidy", fontsize=7.5,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # Branch "Yes": Red Warning & Critical Action
+    # Warning triangle
+    poly_warn = Polygon([[8.0, 1.7], [8.2, 2.05], [8.4, 1.7]], facecolor='#EF4444', edgecolor='#B91C1C', lw=1.2, zorder=3)
+    ax.add_patch(poly_warn)
+    ax.text(8.2, 1.82, "!", fontsize=8.0, fontweight='bold', color='white', ha='center', va='center', zorder=4)
+
+    b_red = FancyBboxPatch((8.2, 1.15), 2.0, 0.82, boxstyle="round,pad=0.06,rounding_size=0.1",
+                           facecolor='#FEE2E2', edgecolor='#DC2626', linewidth=1.5)
+    ax.add_patch(b_red)
+    ax.text(9.2, 1.56, "Critical Red Escalation:\nFreeze Batch Subsidy", fontsize=7.5,
+            fontweight='bold', color='#991B1B', ha='center', va='center', linespacing=1.1)
+
+    b_vault = FancyBboxPatch((8.2, 0.25), 2.0, 0.68, boxstyle="round,pad=0.06,rounding_size=0.1",
+                             facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_vault)
+    ax.text(9.2, 0.59, "SHA-256 Vault &\nSquad GPS Triage", fontsize=7.2,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # Central linking bottom dashboard update
+    b_dash = FancyBboxPatch((3.2, 0.40), 2.5, 0.65, boxstyle="round,pad=0.06,rounding_size=0.1",
+                            facecolor='#FEF08A', edgecolor='#CA8A04', linewidth=1.5)
+    ax.add_patch(b_dash)
+    ax.text(4.45, 0.725, "MSDE National GIS Portal\nLive State & Roster Update", fontsize=7.2,
+            fontweight='bold', color='#0F172A', ha='center', va='center', linespacing=1.1)
+
+    # Connecting Flow Arrows
+    def draw_arr(p1, p2, txt=None, txt_pos=(0, 0)):
+        arr = FancyArrowPatch(p1, p2, arrowstyle='-|>', mutation_scale=13,
+                              color='#475569', linewidth=1.6, linestyle='solid')
+        ax.add_patch(arr)
+        if txt:
+            ax.text(txt_pos[0], txt_pos[1], txt, fontsize=7.2, fontweight='bold', color='#0F172A', ha='center', va='center')
+
+    draw_arr((1.4, 4.02), (1.4, 3.76))
+    draw_arr((1.4, 3.48), (1.4, 3.27))
+    draw_arr((1.4, 2.45), (1.4, 2.17))
+    draw_arr((1.4, 1.35), (1.4, 0.97))
+
+    # Connection to center calculation
+    draw_arr((2.4, 1.76), (3.2, 1.76))
+    draw_arr((4.45, 2.75), (4.45, 2.56))
+    draw_arr((4.45, 2.30), (4.45, 2.17))
+    draw_arr((5.7, 1.76), (6.1, 2.3))
+
+    # Diamond branches
+    draw_arr((7.5, 2.95), (8.2, 3.55), "No", (7.8, 3.35))
+    draw_arr((9.2, 3.35), (9.2, 3.07))
+    draw_arr((7.5, 2.05), (8.2, 1.6), "Yes", (7.85, 1.7))
+    draw_arr((9.2, 1.15), (9.2, 0.93))
+
+    # Bottom loop links
+    draw_arr((8.2, 0.59), (5.7, 0.65))
+    draw_arr((3.2, 0.725), (2.3, 0.725))
+
+    plt.tight_layout()
+    out_path = 'presentation_assets/slide2_workflow_e2e.png'
+    plt.savefig(out_path, transparent=True, bbox_inches='tight')
+    plt.close()
+    print("Generated:", out_path)
+
+# ----------------------------------------------------------------------
+# DIAGRAM 8: SLIDE 2 - Exact Reference Style Innovation & Uniqueness Cards
+# ----------------------------------------------------------------------
+def render_slide2_innovation_cards():
+    import textwrap
+    fig, ax = plt.subplots(figsize=(10.5, 4.4), dpi=300)
+    ax.set_xlim(0, 10.5)
+    ax.set_ylim(0, 4.4)
+    ax.axis('off')
+
+    # 1. Top Center Pill: Innovation and Uniqueness
+    pill = FancyBboxPatch((3.8, 3.4), 2.9, 0.68, boxstyle="round,pad=0.1,rounding_size=0.34",
+                          facecolor='#445E44', edgecolor='#2F432F', linewidth=2.0, zorder=3)
+    ax.add_patch(pill)
+    ax.text(5.25, 3.74, "Innovation\nand Uniqueness", fontsize=9.8, fontweight='bold',
+            color='white', ha='center', va='center', zorder=4, linespacing=1.1)
+
+    # 3 Decorative radiating lines above pill
+    ax.plot([5.25, 5.25], [4.15, 4.30], color='#445E44', lw=2.2)
+    ax.plot([4.95, 4.82], [4.12, 4.26], color='#445E44', lw=2.2)
+    ax.plot([5.55, 5.68], [4.12, 4.26], color='#445E44', lw=2.2)
+
+    # 2. Branching tree arms (connecting pill to each card)
+    card_x_centers = [1.25, 3.25, 5.25, 7.25, 9.25]
+    for cx in card_x_centers:
+        if cx == 5.25:
+            ax.plot([5.25, 5.25], [3.4, 2.9], color='#445E44', lw=2.4, zorder=2)
+        else:
+            rad = -0.15 if cx < 5.25 else 0.15
+            if abs(cx - 5.25) > 3.0:
+                rad = -0.22 if cx < 5.25 else 0.22
+            arrow = FancyArrowPatch((5.25, 3.4), (cx, 2.9),
+                                    arrowstyle="-", color='#445E44', lw=2.4,
+                                    connectionstyle=f"arc3,rad={rad}", zorder=2)
+            ax.add_patch(arrow)
+
+    # 3. The 5 Innovation Cards
+    cards_data = [
+        ("50 FPS Edge\nDe-ID",
+         "Volatile RAM face-blurring; zero biometric vectors stored (DPDP 2023 certified)",
+         "#B45309", "#FEF3C7", 'shield'),
+        ("2-5 KB\nTelemetry",
+         "99.4% bandwidth saved; works on rural 2G/3G cellular dongles (<18 MB/mo)",
+         "#9A3412", "#FED7AA", 'zap'),
+        ("72-Hr Store\n& Forward",
+         "Zero data loss during rural grid/power cuts via local transactional SQLite queue",
+         "#854D0E", "#FEF08A", 'db'),
+        ("Spatial Tool\nAI Audit",
+         "YOLOv8 detects trade tools & workbenches; eliminates rented machine scams",
+         "#C2410C", "#FFEDD5", 'gear'),
+        ("National GIS\n& Vault",
+         "Interactive MSDE heatmap; SHA-256 tamper-proof evidence snapshot signatures",
+         "#57534E", "#E7E5E4", 'map')
+    ]
+
+    for idx, (title, desc, bg_col, bdr_col, icon_type) in enumerate(cards_data):
+        cx = card_x_centers[idx]
+        card_w = 1.82
+        card_h = 2.7
+        bx = cx - card_w / 2
+        by = 0.2
+
+        # Card body with dashed border
+        card = FancyBboxPatch((bx, by), card_w, card_h, boxstyle="round,pad=0.08,rounding_size=0.15",
+                              facecolor=bg_col, edgecolor=bdr_col, linewidth=1.6, linestyle='--', zorder=2)
+        ax.add_patch(card)
+
+        # Title
+        ax.text(cx, by + 2.25, title, fontsize=8.6, fontweight='bold', color='white',
+                ha='center', va='center', zorder=3, linespacing=1.1)
+
+        # Subtle separator line
+        ax.plot([bx + 0.2, bx + card_w - 0.2], [by + 1.82, by + 1.82], color='white', lw=0.8, alpha=0.5, zorder=3)
+
+        # Description text wrapped cleanly
+        wrapped_desc = textwrap.fill(desc, width=20)
+        ax.text(cx, by + 1.25, wrapped_desc, fontsize=6.8, color='#FFFBEB',
+                ha='center', va='center', zorder=3, linespacing=1.2)
+
+        # Bottom vector icon badge (White circle, card colored symbol)
+        draw_icon_badge(ax, cx, by + 0.45, icon_type, color='white', symbol_color=bg_col, radius=0.28)
+
+    plt.tight_layout()
+    out_path = 'presentation_assets/slide2_innovation_cards.png'
+    plt.savefig(out_path, transparent=True, bbox_inches='tight')
+    plt.close()
+    print("Generated:", out_path)
+
 if __name__ == '__main__':
     render_slide2_workflow()
     render_slide2_innovations()
@@ -511,4 +752,6 @@ if __name__ == '__main__':
     render_slide3_architecture()
     render_slide4_mindmap()
     render_slide5_roadmap()
+    render_slide2_workflow_e2e()
+    render_slide2_innovation_cards()
     print("All vector diagram assets generated cleanly!")

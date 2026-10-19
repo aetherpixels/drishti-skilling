@@ -20,6 +20,8 @@ def create_drishti_sih_presentation(output_path):
     slide2_wf_path = os.path.abspath('presentation_assets/slide2_workflow.png')
     slide2_inn_path = os.path.abspath('presentation_assets/slide2_innovations.png')
     slide2_orb_path = os.path.abspath('presentation_assets/slide2_orbital.png')
+    slide2_wf_e2e_path = os.path.abspath('presentation_assets/slide2_workflow_e2e.png')
+    slide2_inn_cards_path = os.path.abspath('presentation_assets/slide2_innovation_cards.png')
     slide3_arch_path = os.path.abspath('presentation_assets/slide3_architecture.png')
     slide4_mind_path = os.path.abspath('presentation_assets/slide4_mindmap.png')
     slide5_road_path = os.path.abspath('presentation_assets/slide5_roadmap.png')
@@ -34,17 +36,18 @@ def create_drishti_sih_presentation(output_path):
     COLOR_LIGHT_BG = RGBColor(248, 250, 252)# #F8FAFC
     COLOR_CARD_BORDER = RGBColor(203, 213, 225) # #CBD5E1
     COLOR_BLUE_ACCENT = RGBColor(2, 132, 199) # #0284C7
+    COLOR_BANNER_BLUE = RGBColor(11, 105, 163) # #0B69A3 - Reference blue banner
     COLOR_AMBER = RGBColor(217, 119, 6)     # #D97706
     COLOR_ROSE = RGBColor(225, 29, 72)      # #E11D48
     COLOR_WHITE = RGBColor(255, 255, 255)
 
-    def add_header(slide, title_text, slide_num=None):
+    def add_header(slide, title_text, slide_num=None, subtitle=None):
         # Team badge (top left)
-        badge_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(0.2), Inches(1.5), Inches(0.7))
+        badge_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(0.18), Inches(1.3), Inches(0.72))
         badge_box.fill.solid()
         badge_box.fill.fore_color.rgb = COLOR_WHITE
         badge_box.line.color.rgb = COLOR_NAVY
-        badge_box.line.width = Pt(2)
+        badge_box.line.width = Pt(1.8)
         tf_badge = badge_box.text_frame
         tf_badge.word_wrap = True
         tf_badge.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -56,17 +59,26 @@ def create_drishti_sih_presentation(output_path):
         p_badge.font.color.rgb = COLOR_NAVY
         p_badge.alignment = PP_ALIGN.CENTER
 
-        # Center Title
-        tx_box = slide.shapes.add_textbox(Inches(2.0), Inches(0.18), Inches(8.0), Inches(0.75))
+        # Center Title & optional Subtitle
+        tx_box = slide.shapes.add_textbox(Inches(1.8), Inches(0.10), Inches(8.5), Inches(0.85))
         tf = tx_box.text_frame
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         p = tf.paragraphs[0]
         p.text = title_text
-        p.font.name = "Arial"
-        p.font.size = Pt(28)
+        p.font.name = "Georgia"
+        p.font.size = Pt(26)
         p.font.bold = True
-        p.font.color.rgb = COLOR_DARK
+        p.font.color.rgb = COLOR_NAVY
         p.alignment = PP_ALIGN.CENTER
+
+        if subtitle:
+            p_sub = tf.add_paragraph()
+            p_sub.text = subtitle
+            p_sub.font.name = "Georgia"
+            p_sub.font.size = Pt(11)
+            p_sub.font.italic = True
+            p_sub.font.color.rgb = COLOR_MUTED
+            p_sub.alignment = PP_ALIGN.CENTER
 
         # Top Right SIH Logo
         if os.path.exists(sih_logo_path):
@@ -74,12 +86,12 @@ def create_drishti_sih_presentation(output_path):
 
         # Bottom Right Slide Number
         if slide_num:
-            num_box = slide.shapes.add_textbox(Inches(12.2), Inches(6.8), Inches(0.8), Inches(0.5))
+            num_box = slide.shapes.add_textbox(Inches(12.4), Inches(6.9), Inches(0.7), Inches(0.4))
             tf_num = num_box.text_frame
             p_num = tf_num.paragraphs[0]
             p_num.text = str(slide_num)
             p_num.font.name = "Arial"
-            p_num.font.size = Pt(24)
+            p_num.font.size = Pt(16)
             p_num.font.bold = True
             p_num.font.color.rgb = COLOR_TEAL
             p_num.alignment = PP_ALIGN.RIGHT
@@ -162,102 +174,104 @@ def create_drishti_sih_presentation(output_path):
 
     # ==========================================
     # SLIDE 2: PROPOSED SOLUTION & INNOVATION
+    # (Exact layout & visual structure matching reference image)
     # ==========================================
     slide2 = prs.slides.add_slide(blank_layout)
-    add_header(slide2, "Drishti-Skilling", slide_num=2)
+    add_header(slide2, "DRISHTI-SKILLING", slide_num=2, subtitle="Privacy-Preserving Edge AI Governance for Vocational Centres")
 
-    # Left Box: Detailed explanation of proposed solution
-    box_l2 = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(1.1), Inches(6.4), Inches(5.8))
+    # Left Column:
+    # 1. Blue Header Banner with Lightbulb Icon
+    banner_l2 = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(1.05), Inches(5.25), Inches(0.46))
+    banner_l2.fill.solid()
+    banner_l2.fill.fore_color.rgb = COLOR_BANNER_BLUE
+    banner_l2.line.color.rgb = COLOR_NAVY
+    banner_l2.line.width = Pt(1.2)
+    tf_banner = banner_l2.text_frame
+    tf_banner.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf_banner.margin_left = Inches(0.15)
+    p_b = tf_banner.paragraphs[0]
+    p_b.text = "💡  Proposed Solution / Approach"
+    p_b.font.name = "Georgia"
+    p_b.font.size = Pt(14)
+    p_b.font.bold = True
+    p_b.font.color.rgb = COLOR_WHITE
+    p_b.alignment = PP_ALIGN.CENTER
+
+    # 2. Container Box with Structured Bullets
+    box_l2 = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(1.56), Inches(5.25), Inches(5.44))
     box_l2.fill.solid()
     box_l2.fill.fore_color.rgb = COLOR_WHITE
-    box_l2.line.color.rgb = COLOR_TEAL
-    box_l2.line.width = Pt(1.5)
+    box_l2.line.color.rgb = COLOR_CARD_BORDER
+    box_l2.line.width = Pt(1.2)
 
     tf_l2 = box_l2.text_frame
     tf_l2.word_wrap = True
-    tf_l2.margin_left = Inches(0.25)
-    tf_l2.margin_right = Inches(0.25)
-    tf_l2.margin_top = Inches(0.2)
+    tf_l2.margin_left = Inches(0.20)
+    tf_l2.margin_right = Inches(0.20)
+    tf_l2.margin_top = Inches(0.18)
+    tf_l2.margin_bottom = Inches(0.15)
 
-    p = tf_l2.paragraphs[0]
-    p.text = "Detailed explanation of the proposed solution"
-    p.font.name = "Arial"
-    p.font.size = Pt(14)
-    p.font.bold = True
-    p.font.color.rgb = COLOR_TEAL
+    bullet_data = [
+        ("• Assured Edge Video Analytics: ",
+         "Eliminates bandwidth bottlenecks by ingesting existing lab RTSP CCTV feeds locally on an affordable on-premise Mini-PC. Processes frames on-device with zero raw cloud video streaming required."),
+        
+        ("• 50 FPS Volatile RAM Face De-ID: ",
+         "Irreversibly blurs trainee faces directly in volatile RAM via BlazeFace before any processing. Fully compliant with DPDP Act 2023 with zero facial biometric vectors stored or leaked."),
+        
+        ("• Dual-Factor Trainee & Equipment Audit: ",
+         "YOLOv8 simultaneously verifies physical student presence and audits mandatory trade machines (welding booths, wiring boards, multimeters) to eradicate rented machinery scams."),
+        
+        ("• Temporal Consistency Rolling Filter: ",
+         "Enforces a 5-minute rolling average window to eliminate false alarms caused by transient student movement, washroom breaks, or water intervals during practical sessions."),
+        
+        ("• Automated Timetable Cross-Reconciliation: ",
+         "Cross-matches edge telemetry against Skill India Portal (SIDH) rosters in real-time, automatically flagging ghost enrollments and locking DBT subsidy grants on deficit.")
+    ]
 
-    p_desc1 = tf_l2.add_paragraph()
-    p_desc1.space_before = Pt(6)
-    p_desc1.text = (
-        "Drishti-Skilling is an edge-native, privacy-preserving video analytics platform designed to "
-        "transform vocational centre monitoring under national schemes (PMKVY, DGT, ITIs). It guarantees "
-        "authentic trainee attendance and verifies practical lab infrastructure while completely protecting citizen "
-        "privacy through real-time hardware-accelerated face de-identification."
-    )
-    p_desc1.font.name = "Arial"
-    p_desc1.font.size = Pt(9.8)
-    p_desc1.font.color.rgb = COLOR_DARK
+    for idx, (b_title, b_desc) in enumerate(bullet_data):
+        p_item = tf_l2.paragraphs[0] if idx == 0 else tf_l2.add_paragraph()
+        if idx > 0:
+            p_item.space_before = Pt(6)
+        
+        r_title = p_item.add_run()
+        r_title.text = b_title
+        r_title.font.name = "Arial"
+        r_title.font.size = Pt(9.8)
+        r_title.font.bold = True
+        r_title.font.color.rgb = COLOR_DARK
 
-    p_desc2 = tf_l2.add_paragraph()
-    p_desc2.space_before = Pt(6)
-    p_desc2.text = (
-        "Key capabilities include High-Frequency 50 FPS Face De-Identification (DPDP Act 2023 compliant), "
-        "Spatial Headcount & Machinery Detection (YOLOv8), 72-Hour Offline Store-and-Forward Telemetry (syncing "
-        "ultra-light 2-5 KB JSON packets), and Real-Time Timetable Reconciliation against Skill India Portal rosters. "
-        "The system delivers automated risk-tiered triage for flying squads and eliminates stipend fraud."
-    )
-    p_desc2.font.name = "Arial"
-    p_desc2.font.size = Pt(9.8)
-    p_desc2.font.color.rgb = COLOR_DARK
+        r_desc = p_item.add_run()
+        r_desc.text = b_desc
+        r_desc.font.name = "Arial"
+        r_desc.font.size = Pt(9.2)
+        r_desc.font.color.rgb = COLOR_MUTED
 
-    # Bottom of Left Box: Orbital Feature Chain Diagram
-    if os.path.exists(slide2_orb_path):
-        slide2.shapes.add_picture(slide2_orb_path, Inches(0.55), Inches(5.18), width=Inches(6.1))
+    # Bottom Live Production Link inside container
+    p_link = tf_l2.add_paragraph()
+    p_link.space_before = Pt(8)
+    r_ll = p_link.add_run()
+    r_ll.text = "🔗 Live Production Demo: "
+    r_ll.font.name = "Arial"
+    r_ll.font.size = Pt(9.0)
+    r_ll.font.bold = True
+    r_ll.font.color.rgb = COLOR_BLUE_ACCENT
 
-    # Right Top Header: How it addresses the problem
-    tx_rt = slide2.shapes.add_textbox(Inches(7.1), Inches(1.05), Inches(5.8), Inches(0.35))
-    tf_rt = tx_rt.text_frame
-    tf_rt.margin_left = 0
-    tf_rt.margin_top = 0
-    p_rt = tf_rt.paragraphs[0]
-    p_rt.text = "How it addresses the problem"
-    p_rt.font.name = "Arial"
-    p_rt.font.size = Pt(13)
-    p_rt.font.bold = True
-    p_rt.font.color.rgb = COLOR_TEAL
+    r_url = p_link.add_run()
+    r_url.text = "https://drishti-skilling.vercel.app/"
+    r_url.font.name = "Arial"
+    r_url.font.size = Pt(9.0)
+    r_url.font.bold = True
+    r_url.font.underline = True
+    r_url.font.color.rgb = COLOR_BLUE_ACCENT
 
-    # Embed Connected Workflow Diagram
-    if os.path.exists(slide2_wf_path):
-        slide2.shapes.add_picture(slide2_wf_path, Inches(7.1), Inches(1.42), width=Inches(5.8))
+    # Right Column:
+    # 1. Top: DRISHTI-SKILLING End-to-end workflow diagram
+    if os.path.exists(slide2_wf_e2e_path):
+        slide2.shapes.add_picture(slide2_wf_e2e_path, Inches(5.82), Inches(1.05), width=Inches(7.15))
 
-    # Right Bottom Header: Innovation and uniqueness of the solution
-    tx_rb = slide2.shapes.add_textbox(Inches(7.1), Inches(3.88), Inches(5.8), Inches(0.35))
-    tf_rb = tx_rb.text_frame
-    tf_rb.margin_left = 0
-    tf_rb.margin_top = 0
-    p_rb = tf_rb.paragraphs[0]
-    p_rb.text = "Innovation and uniqueness of the solution"
-    p_rb.font.name = "Arial"
-    p_rb.font.size = Pt(13)
-    p_rb.font.bold = True
-    p_rb.font.color.rgb = COLOR_TEAL
-
-    # Embed Alternating Baseline Pin Innovation Diagram
-    if os.path.exists(slide2_inn_path):
-        slide2.shapes.add_picture(slide2_inn_path, Inches(7.1), Inches(4.25), width=Inches(5.8))
-
-    # Demo Link on Slide 2
-    tx_link2 = slide2.shapes.add_textbox(Inches(7.1), Inches(6.75), Inches(5.0), Inches(0.35))
-    tf_link2 = tx_link2.text_frame
-    tf_link2.margin_left = 0
-    tf_link2.margin_top = 0
-    p_l2 = tf_link2.paragraphs[0]
-    p_l2.text = "Live Production Demo: https://drishti-skilling.vercel.app/"
-    p_l2.font.name = "Arial"
-    p_l2.font.size = Pt(9.5)
-    p_l2.font.bold = True
-    p_l2.font.color.rgb = COLOR_BLUE_ACCENT
-    p_l2.alignment = PP_ALIGN.LEFT
+    # 2. Bottom: Innovation and Uniqueness Cards diagram
+    if os.path.exists(slide2_inn_cards_path):
+        slide2.shapes.add_picture(slide2_inn_cards_path, Inches(5.82), Inches(4.48), width=Inches(7.15))
 
     # ==========================================
     # SLIDE 3: TECHNICAL APPROACH
