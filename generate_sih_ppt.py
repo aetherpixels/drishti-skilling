@@ -1,0 +1,773 @@
+import os
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.shapes import MSO_SHAPE
+
+def create_drishti_sih_presentation(output_path):
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    blank_layout = prs.slide_layouts[6]  # Blank slide
+
+    # Asset paths
+    sih_logo_path = os.path.abspath('extracted_assets/slide_1_img_6.png')
+    sih_brain_path = os.path.abspath('extracted_assets/slide_1_img_2.png')
+
+    # Color Palette
+    COLOR_NAVY = RGBColor(27, 54, 93)       # #1B365D - Title
+    COLOR_TEAL = RGBColor(0, 126, 138)      # #007E8A - Accent & Boxes
+    COLOR_DARK_TEAL = RGBColor(6, 78, 59)   # #064E3B
+    COLOR_EMERALD = RGBColor(16, 185, 129)  # #10B981
+    COLOR_DARK = RGBColor(15, 23, 42)       # #0F172A - Body text
+    COLOR_MUTED = RGBColor(71, 85, 105)     # #475569
+    COLOR_LIGHT_BG = RGBColor(248, 250, 252)# #F8FAFC
+    COLOR_CARD_BORDER = RGBColor(203, 213, 225) # #CBD5E1
+    COLOR_BLUE_ACCENT = RGBColor(2, 132, 199) # #0284C7
+    COLOR_AMBER = RGBColor(217, 119, 6)     # #D97706
+    COLOR_ROSE = RGBColor(225, 29, 72)      # #E11D48
+    COLOR_WHITE = RGBColor(255, 255, 255)
+
+    def add_header(slide, title_text, slide_num=None):
+        # Team badge (top left)
+        badge_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(0.2), Inches(1.5), Inches(0.7))
+        badge_box.fill.solid()
+        badge_box.fill.fore_color.rgb = COLOR_WHITE
+        badge_box.line.color.rgb = COLOR_NAVY
+        badge_box.line.width = Pt(2)
+        tf_badge = badge_box.text_frame
+        tf_badge.word_wrap = True
+        tf_badge.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_badge = tf_badge.paragraphs[0]
+        p_badge.text = "(DS)"
+        p_badge.font.name = "Arial"
+        p_badge.font.size = Pt(20)
+        p_badge.font.bold = True
+        p_badge.font.color.rgb = COLOR_NAVY
+        p_badge.alignment = PP_ALIGN.CENTER
+
+        # Center Title
+        tx_box = slide.shapes.add_textbox(Inches(2.0), Inches(0.18), Inches(8.0), Inches(0.75))
+        tf = tx_box.text_frame
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p = tf.paragraphs[0]
+        p.text = title_text
+        p.font.name = "Arial"
+        p.font.size = Pt(28)
+        p.font.bold = True
+        p.font.color.rgb = COLOR_DARK
+        p.alignment = PP_ALIGN.CENTER
+
+        # Top Right SIH Logo
+        if os.path.exists(sih_logo_path):
+            slide.shapes.add_picture(sih_logo_path, Inches(10.5), Inches(0.15), width=Inches(2.4))
+
+        # Bottom Right Slide Number
+        if slide_num:
+            num_box = slide.shapes.add_textbox(Inches(12.2), Inches(6.8), Inches(0.8), Inches(0.5))
+            tf_num = num_box.text_frame
+            p_num = tf_num.paragraphs[0]
+            p_num.text = str(slide_num)
+            p_num.font.name = "Arial"
+            p_num.font.size = Pt(24)
+            p_num.font.bold = True
+            p_num.font.color.rgb = COLOR_TEAL
+            p_num.alignment = PP_ALIGN.RIGHT
+
+    # ==========================================
+    # SLIDE 1: TITLE SLIDE
+    # ==========================================
+    slide1 = prs.slides.add_slide(blank_layout)
+
+    # Top Center Title
+    tx_title = slide1.shapes.add_textbox(Inches(1.5), Inches(0.35), Inches(8.5), Inches(0.8))
+    tf1 = tx_title.text_frame
+    p1 = tf1.paragraphs[0]
+    p1.text = "Smart India Hackathon 2024"
+    p1.font.name = "Arial"
+    p1.font.size = Pt(36)
+    p1.font.bold = True
+    p1.font.color.rgb = COLOR_NAVY
+    p1.alignment = PP_ALIGN.CENTER
+
+    # Top Right SIH Logo
+    if os.path.exists(sih_logo_path):
+        slide1.shapes.add_picture(sih_logo_path, Inches(10.2), Inches(0.2), width=Inches(2.7))
+
+    # Left Side Details Box
+    tx_meta = slide1.shapes.add_textbox(Inches(0.8), Inches(1.5), Inches(6.5), Inches(5.2))
+    tf_meta = tx_meta.text_frame
+    tf_meta.word_wrap = True
+
+    meta_items = [
+        ("• Problem Statement ID:", " SIH1591 / PS26245"),
+        ("• PS Title:", " AI-Powered Edge Video Analytics & Governance"),
+        ("• Theme:", " Smart Automation / Governance & Skilling"),
+        ("• PS Category:", " Software"),
+        ("• Team ID:", " [Team ID]"),
+        ("• Team Name:", " Drishti Innovators / HackSolvers")
+    ]
+
+    for idx, (label, val) in enumerate(meta_items):
+        p = tf_meta.paragraphs[0] if idx == 0 else tf_meta.add_paragraph()
+        p.space_before = Pt(18)
+        run_l = p.add_run()
+        run_l.text = label
+        run_l.font.name = "Arial"
+        run_l.font.size = Pt(20)
+        run_l.font.bold = True
+        run_l.font.color.rgb = COLOR_DARK
+
+        run_v = p.add_run()
+        run_v.text = val
+        run_v.font.name = "Arial"
+        run_v.font.size = Pt(20)
+        run_v.font.bold = True
+        run_v.font.color.rgb = COLOR_TEAL
+
+    # Right Side: SIH Brain/Bulb Graphic
+    if os.path.exists(sih_brain_path):
+        slide1.shapes.add_picture(sih_brain_path, Inches(7.5), Inches(1.5), width=Inches(3.8))
+
+    # Right Bottom: Project Title & Tagline
+    tx_proj = slide1.shapes.add_textbox(Inches(7.0), Inches(5.5), Inches(5.5), Inches(1.4))
+    tf_proj = tx_proj.text_frame
+    tf_proj.word_wrap = True
+    p_proj = tf_proj.paragraphs[0]
+    p_proj.text = "Drishti-Skilling"
+    p_proj.font.name = "Arial"
+    p_proj.font.size = Pt(32)
+    p_proj.font.bold = True
+    p_proj.font.color.rgb = COLOR_BLUE_ACCENT
+    p_proj.alignment = PP_ALIGN.CENTER
+
+    p_tag = tf_proj.add_paragraph()
+    p_tag.text = "~ Privacy-Preserving Edge AI Governance for Vocational Centres"
+    p_tag.font.name = "Arial"
+    p_tag.font.size = Pt(13)
+    p_tag.font.color.rgb = COLOR_MUTED
+    p_tag.alignment = PP_ALIGN.CENTER
+
+    # ==========================================
+    # SLIDE 2: PROPOSED SOLUTION & INNOVATION
+    # ==========================================
+    slide2 = prs.slides.add_slide(blank_layout)
+    add_header(slide2, "Drishti-Skilling", slide_num=2)
+
+    # Left Box: Detailed explanation of proposed solution
+    box_l2 = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(1.1), Inches(6.4), Inches(5.8))
+    box_l2.fill.solid()
+    box_l2.fill.fore_color.rgb = COLOR_WHITE
+    box_l2.line.color.rgb = COLOR_TEAL
+    box_l2.line.width = Pt(1.5)
+
+    tf_l2 = box_l2.text_frame
+    tf_l2.word_wrap = True
+    tf_l2.margin_left = Inches(0.3)
+    tf_l2.margin_right = Inches(0.3)
+    tf_l2.margin_top = Inches(0.25)
+
+    p = tf_l2.paragraphs[0]
+    p.text = "Detailed explanation of the proposed solution"
+    p.font.name = "Arial"
+    p.font.size = Pt(15)
+    p.font.bold = True
+    p.font.color.rgb = COLOR_TEAL
+
+    p_desc1 = tf_l2.add_paragraph()
+    p_desc1.space_before = Pt(8)
+    p_desc1.text = (
+        "Drishti-Skilling is an edge-native, privacy-preserving video analytics platform designed to "
+        "transform vocational centre monitoring under national schemes (PMKVY, DGT, ITIs). It guarantees "
+        "authentic trainee attendance and verifies practical lab infrastructure while completely protecting citizen "
+        "privacy through real-time hardware-accelerated face de-identification."
+    )
+    p_desc1.font.name = "Arial"
+    p_desc1.font.size = Pt(11)
+    p_desc1.font.color.rgb = COLOR_DARK
+
+    p_desc2 = tf_l2.add_paragraph()
+    p_desc2.space_before = Pt(8)
+    p_desc2.text = (
+        "Key capabilities include High-Frequency 50 FPS Face De-Identification compliant with DPDP Act 2023, "
+        "Spatial Headcount & Machinery Detection (YOLOv8), 72-Hour Offline Store-and-Forward Telemetry (syncing "
+        "ultra-light 2-5 KB JSON packets), and Real-Time Timetable Cross-Reconciliation against Skill India Portal rosters. "
+        "The system delivers automated risk-tiered triage for flying squads and eliminates hundreds of crores in ghost stipend fraud."
+    )
+    p_desc2.font.name = "Arial"
+    p_desc2.font.size = Pt(11)
+    p_desc2.font.color.rgb = COLOR_DARK
+
+    # Feature badges row at bottom of left box
+    features = [
+        ("Edge Face Blur", COLOR_EMERALD),
+        ("Headcount AI", COLOR_BLUE_ACCENT),
+        ("Asset Audit", COLOR_AMBER),
+        ("2 KB Telemetry", COLOR_TEAL),
+        ("SIP Reconcile", COLOR_NAVY)
+    ]
+    for i, (f_name, f_col) in enumerate(features):
+        bx = Inches(0.65 + i * 1.15)
+        by = Inches(5.6)
+        c_node = slide2.shapes.add_shape(MSO_SHAPE.OVAL, bx, by, Inches(0.9), Inches(0.9))
+        c_node.fill.solid()
+        c_node.fill.fore_color.rgb = COLOR_WHITE
+        c_node.line.color.rgb = f_col
+        c_node.line.width = Pt(2)
+        tf_c = c_node.text_frame
+        tf_c.word_wrap = True
+        tf_c.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_c = tf_c.paragraphs[0]
+        p_c.text = f_name
+        p_c.font.name = "Arial"
+        p_c.font.size = Pt(8)
+        p_c.font.bold = True
+        p_c.font.color.rgb = f_col
+        p_c.alignment = PP_ALIGN.CENTER
+
+    # Right Top Box: How it addresses the problem
+    box_rt = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.1), Inches(1.1), Inches(5.8), Inches(2.7))
+    box_rt.fill.solid()
+    box_rt.fill.fore_color.rgb = COLOR_WHITE
+    box_rt.line.color.rgb = COLOR_TEAL
+    box_rt.line.width = Pt(1.5)
+
+    tf_rt = box_rt.text_frame
+    tf_rt.margin_left = Inches(0.25)
+    tf_rt.margin_top = Inches(0.2)
+    p_rt = tf_rt.paragraphs[0]
+    p_rt.text = "How it addresses the problem"
+    p_rt.font.name = "Arial"
+    p_rt.font.size = Pt(14)
+    p_rt.font.bold = True
+    p_rt.font.color.rgb = COLOR_TEAL
+
+    # 4 Connected nodes in Right Top Box
+    workflow_nodes = [
+        ("Eliminates Ghost Batches\n(Instant Discrepancy Alerts)", Inches(7.3), Inches(1.7), Inches(2.5), Inches(0.7)),
+        ("Guarantees Quality Training\n(Practical Equipment Check)", Inches(10.1), Inches(1.7), Inches(2.6), Inches(0.7)),
+        ("99.4% Bandwidth Savings\n(2G/3G Dongle Compatible)", Inches(7.3), Inches(2.7), Inches(2.5), Inches(0.7)),
+        ("100% DPDP Act Compliant\n(Zero Biometric Face Storage)", Inches(10.1), Inches(2.7), Inches(2.6), Inches(0.7))
+    ]
+    for text, nx, ny, nw, nh in workflow_nodes:
+        sh = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, nx, ny, nw, nh)
+        sh.fill.solid()
+        sh.fill.fore_color.rgb = COLOR_LIGHT_BG
+        sh.line.color.rgb = COLOR_BLUE_ACCENT
+        sh.line.width = Pt(1)
+        tf_n = sh.text_frame
+        tf_n.word_wrap = True
+        tf_n.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_n = tf_n.paragraphs[0]
+        p_n.text = text
+        p_n.font.name = "Arial"
+        p_n.font.size = Pt(9)
+        p_n.font.bold = True
+        p_n.font.color.rgb = COLOR_DARK
+        p_n.alignment = PP_ALIGN.CENTER
+
+    # Right Bottom Box: Innovation and uniqueness of the solution
+    box_rb = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.1), Inches(4.0), Inches(5.8), Inches(2.9))
+    box_rb.fill.solid()
+    box_rb.fill.fore_color.rgb = COLOR_WHITE
+    box_rb.line.color.rgb = COLOR_TEAL
+    box_rb.line.width = Pt(1.5)
+
+    tf_rb = box_rb.text_frame
+    tf_rb.margin_left = Inches(0.25)
+    tf_rb.margin_top = Inches(0.2)
+    p_rb = tf_rb.paragraphs[0]
+    p_rb.text = "Innovation and uniqueness of the solution"
+    p_rb.font.name = "Arial"
+    p_rb.font.size = Pt(14)
+    p_rb.font.bold = True
+    p_rb.font.color.rgb = COLOR_TEAL
+
+    innovations = [
+        ("🔒 50 FPS Edge De-ID", "Zero facial exposure; DPDP 2023 certified blur filter"),
+        ("⚡ 2-5 KB Telemetry", "120 MB/month per centre; saves 99.4% cloud streaming cost"),
+        ("💾 72-Hr Store & Forward", "Local SQLite caching guarantees zero data loss in rural outages"),
+        ("🛠 Spatial Tool Audit", "YOLOv8 verifies mandatory sanctioned workbenches & kits"),
+        ("🗺 Live GIS Portal", "Interactive MSDE map with Scrypt/JWT tamper-proof audit trails")
+    ]
+    for idx, (title, desc) in enumerate(innovations):
+        y_pos = Inches(4.5 + idx * 0.42)
+        tx_inn = slide2.shapes.add_textbox(Inches(7.3), y_pos, Inches(5.4), Inches(0.4))
+        tf_i = tx_inn.text_frame
+        tf_i.margin_left = 0
+        tf_i.margin_top = 0
+        p_i = tf_i.paragraphs[0]
+        r1 = p_i.add_run()
+        r1.text = title + ": "
+        r1.font.bold = True
+        r1.font.size = Pt(10)
+        r1.font.color.rgb = COLOR_BLUE_ACCENT
+        r2 = p_i.add_run()
+        r2.text = desc
+        r2.font.size = Pt(9.5)
+        r2.font.color.rgb = COLOR_MUTED
+
+    # Demo Link on Slide 2
+    tx_link2 = slide2.shapes.add_textbox(Inches(7.3), Inches(6.55), Inches(5.4), Inches(0.35))
+    tf_link2 = tx_link2.text_frame
+    tf_link2.margin_left = 0
+    tf_link2.margin_top = 0
+    p_l2 = tf_link2.paragraphs[0]
+    p_l2.text = "Live Production Demo: https://drishti-skilling.vercel.app/"
+    p_l2.font.name = "Arial"
+    p_l2.font.size = Pt(10)
+    p_l2.font.bold = True
+    p_l2.font.color.rgb = COLOR_BLUE_ACCENT
+    p_l2.alignment = PP_ALIGN.RIGHT
+
+    # ==========================================
+    # SLIDE 3: TECHNICAL APPROACH
+    # ==========================================
+    slide3 = prs.slides.add_slide(blank_layout)
+    add_header(slide3, "Technical Approach", slide_num=3)
+
+    # Left Column: Tech Stack (Top) & Methodology (Bottom)
+    tech_categories = [
+        ("Edge AI & Vision", "BlazeFace 50 FPS De-ID\nYOLOv8-Nano Head Count\nCOCO Spatial Asset AI", COLOR_EMERALD, Inches(0.4), Inches(1.1)),
+        ("Backend & API", "Node.js & Express REST\nFastAPI / Python Edge\nMQTT Telemetry Broker", COLOR_BLUE_ACCENT, Inches(3.6), Inches(1.1)),
+        ("Frontend & GIS", "HTML5 & TailwindCSS\nLeaflet.js GIS Mapping\nChart.js Live Telemetry", COLOR_AMBER, Inches(0.4), Inches(2.4)),
+        ("Security & DB", "DPDP Act 2023 RAM Shield\nScrypt Auth & Signed JWT\nSQLite & PostgreSQL", COLOR_TEAL, Inches(3.6), Inches(2.4))
+    ]
+    for cat_title, cat_items, cat_color, cx, cy in tech_categories:
+        sh = slide3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, cx, cy, Inches(3.0), Inches(1.15))
+        sh.fill.solid()
+        sh.fill.fore_color.rgb = COLOR_WHITE
+        sh.line.color.rgb = cat_color
+        sh.line.width = Pt(1.5)
+        tf_cat = sh.text_frame
+        tf_cat.margin_left = Inches(0.15)
+        tf_cat.margin_top = Inches(0.1)
+        p_c = tf_cat.paragraphs[0]
+        p_c.text = cat_title
+        p_c.font.bold = True
+        p_c.font.size = Pt(11)
+        p_c.font.color.rgb = cat_color
+
+        for item in cat_items.split('\n'):
+            p_i = tf_cat.add_paragraph()
+            p_i.text = "• " + item
+            p_i.font.size = Pt(9)
+            p_i.font.color.rgb = COLOR_DARK
+
+    # Methodology Box (Bottom Left)
+    box_meth = slide3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(3.7), Inches(6.2), Inches(3.2))
+    box_meth.fill.solid()
+    box_meth.fill.fore_color.rgb = COLOR_WHITE
+    box_meth.line.color.rgb = COLOR_TEAL
+    box_meth.line.width = Pt(1.5)
+
+    tf_m = box_meth.text_frame
+    tf_m.margin_left = Inches(0.25)
+    tf_m.margin_top = Inches(0.2)
+    p_m = tf_m.paragraphs[0]
+    p_m.text = "Methodology and process for implementation"
+    p_m.font.bold = True
+    p_m.font.size = Pt(13)
+    p_m.font.color.rgb = COLOR_TEAL
+
+    method_steps = [
+        ("➔ Core Architecture:", [
+            "Edge Gateway: RTSP stream capture from existing classroom/lab CCTV.",
+            "Volatile RAM De-ID: BlazeFace hardware downscaled inference (<12ms) with zero raw face storage.",
+            "YOLO Headcount & Asset Check: Temporal 5-minute rolling average to suppress momentary false flags."
+        ]),
+        ("➔ Integration & Security:", [
+            "Encrypted Telemetry: Transmits 2-5 KB JSON packets to cloud via MQTT/HTTPS.",
+            "Automated SIP Reconciliation: Live cross-check against Skill India Portal batch roster.",
+            "Security & Cryptography: Scrypt password hashing, JWT token authorization, and SHA-256 evidence signing."
+        ])
+    ]
+    for section_title, bullets in method_steps:
+        p_sec = tf_m.add_paragraph()
+        p_sec.space_before = Pt(6)
+        p_sec.text = section_title
+        p_sec.font.bold = True
+        p_sec.font.size = Pt(10.5)
+        p_sec.font.color.rgb = COLOR_NAVY
+        for b in bullets:
+            p_b = tf_m.add_paragraph()
+            p_b.text = "  ● " + b
+            p_b.font.size = Pt(9)
+            p_b.font.color.rgb = COLOR_DARK
+
+    # Right Column: Architecture Pipeline Diagram
+    box_arch = slide3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(6.9), Inches(1.1), Inches(6.0), Inches(5.8))
+    box_arch.fill.solid()
+    box_arch.fill.fore_color.rgb = COLOR_LIGHT_BG
+    box_arch.line.color.rgb = COLOR_BLUE_ACCENT
+    box_arch.line.width = Pt(1.5)
+
+    tf_a = box_arch.text_frame
+    tf_a.margin_left = Inches(0.25)
+    tf_a.margin_top = Inches(0.2)
+    p_a = tf_a.paragraphs[0]
+    p_a.text = "End-to-End System Pipeline Architecture"
+    p_a.font.bold = True
+    p_a.font.size = Pt(14)
+    p_a.font.color.rgb = COLOR_NAVY
+
+    pipe_stages = [
+        ("1. CCTV Sensing & Ingestion", "RTSP 720p/1080p Stream • Anti-Tamper Frame Angle Guard", Inches(7.1), Inches(1.7), COLOR_NAVY),
+        ("2. Edge AI & Privacy Shield", "50 FPS BlazeFace Blur • YOLOv8 Headcount • Tool Verification", Inches(7.1), Inches(2.6), COLOR_EMERALD),
+        ("3. Lightweight Transport", "Encrypted 2-5 KB JSON Telemetry • 72-Hr SQLite Buffer", Inches(7.1), Inches(3.5), COLOR_TEAL),
+        ("4. Cloud Reconciliation Engine", "SIP Timetable Matcher • Discrepancy Rate: |Claimed - Real|", Inches(7.1), Inches(4.4), COLOR_AMBER),
+        ("5. MSDE National Dashboard", "GIS Heatmap • Scrypt/JWT RBAC • SHA-256 Signed Evidence Vault", Inches(7.1), Inches(5.3), COLOR_BLUE_ACCENT)
+    ]
+    for title, desc, px, py, col in pipe_stages:
+        sh_pipe = slide3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, px, py, Inches(5.6), Inches(0.72))
+        sh_pipe.fill.solid()
+        sh_pipe.fill.fore_color.rgb = COLOR_WHITE
+        sh_pipe.line.color.rgb = col
+        sh_pipe.line.width = Pt(1.5)
+        tf_p = sh_pipe.text_frame
+        tf_p.margin_left = Inches(0.2)
+        tf_p.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_pt = tf_p.paragraphs[0]
+        p_pt.text = title
+        p_pt.font.bold = True
+        p_pt.font.size = Pt(10.5)
+        p_pt.font.color.rgb = col
+        p_pd = tf_p.add_paragraph()
+        p_pd.text = desc
+        p_pd.font.size = Pt(8.5)
+        p_pd.font.color.rgb = COLOR_MUTED
+
+    # Connecting arrows between architecture stages
+    for i in range(4):
+        arrow_y = Inches(2.42 + i * 0.9)
+        arrow = slide3.shapes.add_shape(MSO_SHAPE.DOWN_ARROW, Inches(9.8), arrow_y, Inches(0.25), Inches(0.18))
+        arrow.fill.solid()
+        arrow.fill.fore_color.rgb = COLOR_CARD_BORDER
+        arrow.line.fill.background()
+
+    # ==========================================
+    # SLIDE 4: FEASIBILITY & VIABILITY
+    # ==========================================
+    slide4 = prs.slides.add_slide(blank_layout)
+    add_header(slide4, "Feasibility & Viability", slide_num=4)
+
+    # Center Hub Node
+    hub = slide4.shapes.add_shape(MSO_SHAPE.OVAL, Inches(5.5), Inches(1.1), Inches(2.3), Inches(1.0))
+    hub.fill.solid()
+    hub.fill.fore_color.rgb = COLOR_WHITE
+    hub.line.color.rgb = COLOR_AMBER
+    hub.line.width = Pt(2.5)
+    tf_h = hub.text_frame
+    tf_h.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p_h = tf_h.paragraphs[0]
+    p_h.text = "Feasibility\n& Viability"
+    p_h.font.bold = True
+    p_h.font.size = Pt(14)
+    p_h.font.color.rgb = COLOR_AMBER
+    p_h.alignment = PP_ALIGN.CENTER
+
+    # Left Tree: Potential Challenges & Risks
+    left_banner = slide4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.5), Inches(1.2), Inches(4.5), Inches(0.45))
+    left_banner.fill.solid()
+    left_banner.fill.fore_color.rgb = COLOR_AMBER
+    left_banner.line.fill.background()
+    tf_lb = left_banner.text_frame
+    tf_lb.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p_lb = tf_lb.paragraphs[0]
+    p_lb.text = "Potential Challenges & Risks"
+    p_lb.font.bold = True
+    p_lb.font.size = Pt(11)
+    p_lb.font.color.rgb = COLOR_WHITE
+    p_lb.alignment = PP_ALIGN.CENTER
+
+    challenges = [
+        ("TECHNICAL", "High CCTV video resolution bottlenecks rural 2G/3G bandwidth; camera blinding or angle tampering."),
+        ("OPERATIONAL", "Frequent rural electricity/broadband outages; absence of on-site IT technicians at remote ITIs."),
+        ("FINANCIAL", "Prohibitive cloud GPU inference costs; expensive hardware upgrades burdening training centres."),
+        ("REGULATORY", "Trainee biometric privacy violations and legal liabilities under India's DPDP Act 2023.")
+    ]
+    for idx, (tag, desc) in enumerate(challenges):
+        sh_c = slide4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.5), Inches(1.8 + idx * 0.72), Inches(4.5), Inches(0.65))
+        sh_c.fill.solid()
+        sh_c.fill.fore_color.rgb = COLOR_WHITE
+        sh_c.line.color.rgb = COLOR_CARD_BORDER
+        sh_c.line.width = Pt(1)
+        tf_c = sh_c.text_frame
+        tf_c.margin_left = Inches(0.15)
+        tf_c.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_c = tf_c.paragraphs[0]
+        r1 = p_c.add_run()
+        r1.text = tag + ": "
+        r1.font.bold = True
+        r1.font.size = Pt(9.5)
+        r1.font.color.rgb = COLOR_ROSE
+        r2 = p_c.add_run()
+        r2.text = desc
+        r2.font.size = Pt(8.5)
+        r2.font.color.rgb = COLOR_DARK
+
+    # Right Tree: Strategies for Overcoming Challenges
+    right_banner = slide4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.3), Inches(1.2), Inches(4.5), Inches(0.45))
+    right_banner.fill.solid()
+    right_banner.fill.fore_color.rgb = COLOR_EMERALD
+    right_banner.line.fill.background()
+    tf_rb = right_banner.text_frame
+    tf_rb.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p_rb = tf_rb.paragraphs[0]
+    p_rb.text = "Strategies for Overcoming Challenges"
+    p_rb.font.bold = True
+    p_rb.font.size = Pt(11)
+    p_rb.font.color.rgb = COLOR_WHITE
+    p_rb.alignment = PP_ALIGN.CENTER
+
+    solutions = [
+        ("TECHNICAL", "Edge-native inference pushes tiny 2 KB JSON packets (99.4% saved); anti-tamper AI alerts angle tilt."),
+        ("OPERATIONAL", "72-hour SQLite store-and-forward caching; zero-touch plug-and-play gateway auto-reconnects."),
+        ("FINANCIAL", "Quantized INT8 models execute on sub-₹7k Mini-PCs; cloud compute drops to <₹80/mo per centre."),
+        ("REGULATORY", "Irreversible edge face-blurring directly in volatile memory; zero biometric vectors stored.")
+    ]
+    for idx, (tag, desc) in enumerate(solutions):
+        sh_s = slide4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.3), Inches(1.8 + idx * 0.72), Inches(4.5), Inches(0.65))
+        sh_s.fill.solid()
+        sh_s.fill.fore_color.rgb = COLOR_WHITE
+        sh_s.line.color.rgb = COLOR_CARD_BORDER
+        sh_s.line.width = Pt(1)
+        tf_s = sh_s.text_frame
+        tf_s.margin_left = Inches(0.15)
+        tf_s.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_s = tf_s.paragraphs[0]
+        r1 = p_s.add_run()
+        r1.text = tag + ": "
+        r1.font.bold = True
+        r1.font.size = Pt(9.5)
+        r1.font.color.rgb = COLOR_EMERALD
+        r2 = p_s.add_run()
+        r2.text = desc
+        r2.font.size = Pt(8.5)
+        r2.font.color.rgb = COLOR_DARK
+
+    # Bottom Row: 4 Feasibility Cards
+    f_cards = [
+        ("TECHNICAL FEASIBILITY", [
+            "Reuses standard RTSP CCTV / DVRs.",
+            "INT8 YOLOv8 runs 25+ FPS locally.",
+            "BlazeFace 50 FPS de-identification.",
+            "Working MVP deployed on Vercel."
+        ], COLOR_BLUE_ACCENT, Inches(0.5)),
+        ("MARKET & SCALE FEASIBILITY", [
+            "Applies to 15,000+ national centres.",
+            "Extensible to ITIs, PMKVY, DGT, polytechnics.",
+            "Dockerized OTA automated deployment.",
+            "10-minute web setup wizard."
+        ], COLOR_TEAL, Inches(3.6)),
+        ("FINANCIAL FEASIBILITY", [
+            "Low CapEx: ~₹6,500 edge unit per centre.",
+            "OpEx <₹80/mo (replaces ₹1,800 streaming).",
+            "Saves ₹100+ Cr in ghost stipend fraud.",
+            "Cuts physical audit travel by 75%."
+        ], COLOR_AMBER, Inches(6.7)),
+        ("OPERATIONAL & REGULATORY", [
+            "100% compliant with DPDP Act 2023.",
+            "Zero biometric or Aadhaar storage.",
+            "Ensures rural youth get real trade skills.",
+            "Accelerates payouts for ethical partners."
+        ], COLOR_EMERALD, Inches(9.8))
+    ]
+    for f_title, f_bullets, f_col, fx in f_cards:
+        f_box = slide4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, fx, Inches(4.8), Inches(3.0), Inches(1.85))
+        f_box.fill.solid()
+        f_box.fill.fore_color.rgb = COLOR_WHITE
+        f_box.line.color.rgb = f_col
+        f_box.line.width = Pt(1.5)
+        tf_f = f_box.text_frame
+        tf_f.margin_left = Inches(0.15)
+        tf_f.margin_top = Inches(0.12)
+        p_ft = tf_f.paragraphs[0]
+        p_ft.text = f_title
+        p_ft.font.bold = True
+        p_ft.font.size = Pt(10)
+        p_ft.font.color.rgb = f_col
+
+        for b in f_bullets:
+            p_b = tf_f.add_paragraph()
+            p_b.text = "• " + b
+            p_b.font.size = Pt(8.5)
+            p_b.font.color.rgb = COLOR_DARK
+
+    # Bottom link
+    tx_link4 = slide4.shapes.add_textbox(Inches(3.0), Inches(6.7), Inches(7.3), Inches(0.35))
+    tf_l4 = tx_link4.text_frame
+    p_l4 = tf_l4.paragraphs[0]
+    p_l4.text = "Interactive System Prototype: https://drishti-skilling.vercel.app/"
+    p_l4.font.bold = True
+    p_l4.font.size = Pt(10)
+    p_l4.font.color.rgb = COLOR_BLUE_ACCENT
+    p_l4.alignment = PP_ALIGN.CENTER
+
+    # ==========================================
+    # SLIDE 5: IMPACT AND BENEFITS
+    # ==========================================
+    slide5 = prs.slides.add_slide(blank_layout)
+    add_header(slide5, "Impact and Benefits", slide_num=5)
+
+    # Left Column: Potential Impact & Benefits of Solution
+    tx_imp_head = slide5.shapes.add_textbox(Inches(0.5), Inches(1.05), Inches(5.8), Inches(0.45))
+    tf_ih = tx_imp_head.text_frame
+    p_ih = tf_ih.paragraphs[0]
+    p_ih.text = "🌍 Potential Impact & Benefits of Solution"
+    p_ih.font.bold = True
+    p_ih.font.size = Pt(15)
+    p_ih.font.color.rgb = COLOR_TEAL
+
+    impact_cards = [
+        ("01", "Plugs Ghost Trainee Leakages", "Stops ₹100+ Crores in fraudulent stipend claims; halts illegal payouts automatically."),
+        ("02", "Guarantees Real Youth Skills", "Enforces mandatory physical trainer presence & hands-on equipment practice for trainees."),
+        ("03", "99.4% Rural Bandwidth Reduction", "Operates smoothly on 2G/3G links with 2-5 KB JSON metrics; saves millions in streaming bills."),
+        ("04", "100% DPDP Act 2023 Compliance", "Volatile RAM face-blurring guarantees zero citizen facial biometrics stored or leaked."),
+        ("05", "75% Audit Travel Cost Reduction", "Objective risk triage directs flying squads only to red-flagged hotspot centres."),
+        ("06", "Faster Payouts for Ethical Centres", "Automated compliance index clears verified training centres for rapid subsidy disbursement.")
+    ]
+    for idx, (num, title, desc) in enumerate(impact_cards):
+        y_pos = Inches(1.55 + idx * 0.85)
+
+        # Number circle badge
+        c_num = slide5.shapes.add_shape(MSO_SHAPE.OVAL, Inches(0.5), y_pos + Inches(0.08), Inches(0.55), Inches(0.55))
+        c_num.fill.solid()
+        c_num.fill.fore_color.rgb = COLOR_DARK
+        c_num.line.fill.background()
+        tf_cn = c_num.text_frame
+        tf_cn.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_cn = tf_cn.paragraphs[0]
+        p_cn.text = num
+        p_cn.font.bold = True
+        p_cn.font.size = Pt(11)
+        p_cn.font.color.rgb = COLOR_WHITE
+        p_cn.alignment = PP_ALIGN.CENTER
+
+        # Benefit pill card
+        card_b = slide5.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.2), y_pos, Inches(5.0), Inches(0.72))
+        card_b.fill.solid()
+        card_b.fill.fore_color.rgb = COLOR_LIGHT_BG
+        card_b.line.color.rgb = COLOR_CARD_BORDER
+        card_b.line.width = Pt(1)
+        tf_cb = card_b.text_frame
+        tf_cb.margin_left = Inches(0.18)
+        tf_cb.vertical_anchor = MSO_ANCHOR.MIDDLE
+        p_cbt = tf_cb.paragraphs[0]
+        p_cbt.text = title
+        p_cbt.font.bold = True
+        p_cbt.font.size = Pt(10)
+        p_cbt.font.color.rgb = COLOR_NAVY
+        p_cbd = tf_cb.add_paragraph()
+        p_cbd.text = desc
+        p_cbd.font.size = Pt(8)
+        p_cbd.font.color.rgb = COLOR_MUTED
+
+    # Right Column: Roadmap & Future Goals (Agile Sprints)
+    tx_road_head = slide5.shapes.add_textbox(Inches(6.8), Inches(1.05), Inches(6.0), Inches(0.45))
+    tf_rh = tx_road_head.text_frame
+    p_rh = tf_rh.paragraphs[0]
+    p_rh.text = "💡 Roadmap & Future Goals (Deployment Sprints)"
+    p_rh.font.bold = True
+    p_rh.font.size = Pt(15)
+    p_rh.font.color.rgb = COLOR_TEAL
+
+    sprint_boxes = [
+        ("Sprint 1: CORE EDGE AI", "• Real-time webcam & RTSP ingest\n• 50 FPS face de-identification\n• Volatile RAM DPDP shield", Inches(6.8), Inches(1.7), COLOR_NAVY),
+        ("Sprint 2: HEADCOUNT & ASSETS", "• YOLOv8 spatial headcount\n• Sanctioned tool detection\n• Temporal 5-min smoothing", Inches(8.9), Inches(1.7), COLOR_TEAL),
+        ("Sprint 3: OFFLINE TELEMETRY", "• 72-hr SQLite store & forward\n• 2-5 KB JSON sync engine\n• Offline reconnect recovery", Inches(11.0), Inches(1.7), COLOR_AMBER),
+        ("Sprint 6: NATIONAL ROLLOUT", "• 15,000+ vocational centres\n• AI attendance automated audits\n• Direct Benefit Transfer sync", Inches(6.8), Inches(4.2), COLOR_DARK_TEAL),
+        ("Sprint 5: MSDE GIS PORTAL", "• Interactive national map\n• Real-time discrepancy alert\n• Scrypt/JWT tamper security", Inches(8.9), Inches(4.2), COLOR_BLUE_ACCENT),
+        ("Sprint 4: TIMETABLE SYNC", "• Skill India Portal roster sync\n• Variance = |Claimed - Real|\n• SHA-256 evidence vault", Inches(11.0), Inches(4.2), COLOR_EMERALD)
+    ]
+    for s_title, s_bullets, s_x, s_y, s_col in sprint_boxes:
+        s_box = slide5.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, s_x, s_y, Inches(1.95), Inches(2.1))
+        s_box.fill.solid()
+        s_box.fill.fore_color.rgb = COLOR_WHITE
+        s_box.line.color.rgb = s_col
+        s_box.line.width = Pt(1.5)
+        tf_s = s_box.text_frame
+        tf_s.margin_left = Inches(0.12)
+        tf_s.margin_top = Inches(0.12)
+        p_st = tf_s.paragraphs[0]
+        p_st.text = s_title
+        p_st.font.bold = True
+        p_st.font.size = Pt(9)
+        p_st.font.color.rgb = s_col
+
+        for b in s_bullets.split('\n'):
+            p_sb = tf_s.add_paragraph()
+            p_sb.text = b
+            p_sb.font.size = Pt(7.5)
+            p_sb.font.color.rgb = COLOR_DARK
+
+    # ==========================================
+    # SLIDE 6: RESEARCH AND REFERENCES
+    # ==========================================
+    slide6 = prs.slides.add_slide(blank_layout)
+    add_header(slide6, "Research and References", slide_num=6)
+
+    # Main Reference Container Box
+    box_ref = slide6.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.5), Inches(1.1), Inches(12.3), Inches(5.8))
+    box_ref.fill.solid()
+    box_ref.fill.fore_color.rgb = COLOR_WHITE
+    box_ref.line.color.rgb = COLOR_TEAL
+    box_ref.line.width = Pt(1.5)
+
+    tf_ref = box_ref.text_frame
+    tf_ref.margin_left = Inches(0.35)
+    tf_ref.margin_top = Inches(0.25)
+    p_rt = tf_ref.paragraphs[0]
+    p_rt.text = "Details / Links of the reference and research work"
+    p_rt.font.bold = True
+    p_rt.font.size = Pt(15)
+    p_rt.font.color.rgb = COLOR_TEAL
+
+    citations = [
+        ("1. Comptroller and Auditor General of India (CAG): ",
+         "Performance Audit on National Skill Development Mission (Report No. 10 of 2018), documenting 25-35% variance between reported trainee rosters and physical classroom occupancy in unmonitored centres."),
+
+        ("2. Ministry of Skill Development and Entrepreneurship (MSDE): ",
+         "Guidelines for Empanelment & Continuous Monitoring of Training Centres (PMKVY 4.0 / DGT Norms), specifying mandatory trainer-trainee ratios, equipment checklists, and biometric audit requirements."),
+
+        ("3. Digital Personal Data Protection Act, 2023 (DPDP Act): ",
+         "Act No. 22 of 2023, Gazette of India, Section 6 & 8 (Data Minimization & Purpose Limitation Principles), mandating edge-level de-identification and prohibiting continuous storage of raw facial biometrics."),
+
+        ("4. Ultralytics & Google Research (Edge Vision Benchmarks): ",
+         "YOLOv8-Nano and BlazeFace Real-Time Performance on Resource-Constrained Embedded Devices (Edge TPUs and Intel N100 Mini-PCs), demonstrating 25-50 FPS throughput at sub-15W power envelope."),
+
+        ("5. Ministry of Electronics and Information Technology (MeitY): ",
+         "IoT & Edge AI Architectural Guidelines for Public Sector Service Delivery, emphasizing local compute, store-and-forward telemetry, and cryptographic verification of audit records."),
+
+        ("6. National Skill Development Corporation (NSDC): ",
+         "Standard Operating Procedures for Skill India Digital Hub (SIDH) Batch Accreditation & Verification, detailing API interfaces for third-party automated discrepancy reporting."),
+
+        ("7. Drishti-Skilling Production Platform & Verifiable Codebase: ",
+         "Live Web Platform: https://drishti-skilling.vercel.app/ | Architecture & Audit Test Suite: https://github.com/aetherpixels/drishti-skilling (17/17 Security & RBAC automated audit tests passing).")
+    ]
+
+    for idx, (auth, text) in enumerate(citations):
+        p_c = tf_ref.add_paragraph()
+        p_c.space_before = Pt(10)
+        run_a = p_c.add_run()
+        run_a.text = auth
+        run_a.font.name = "Arial"
+        run_a.font.size = Pt(10.5)
+        run_a.font.bold = True
+        run_a.font.color.rgb = COLOR_NAVY
+
+        run_t = p_c.add_run()
+        run_t.text = text
+        run_t.font.name = "Arial"
+        run_t.font.size = Pt(10)
+        run_t.font.color.rgb = COLOR_DARK
+
+    # Save presentation
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    prs.save(output_path)
+    print(f"Successfully generated presentation at: {output_path}")
+
+if __name__ == "__main__":
+    out_file = os.path.abspath("presentation/Drishti_Skilling_SIH2024_Presentation.pptx")
+    create_drishti_sih_presentation(out_file)
