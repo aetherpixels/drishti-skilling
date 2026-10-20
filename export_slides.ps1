@@ -1,5 +1,5 @@
-$pptPath = (Resolve-Path 'presentation\Drishti_Skilling_SIH2024_Presentation.pptx').Path
-$outDir = Join-Path (Get-Location).Path 'presentation\slides_preview'
+$pptPath = Join-Path $PSScriptRoot 'presentation\Drishti_Skilling_SIH2024_Presentation.pptx'
+$outDir = Join-Path $PSScriptRoot 'presentation\slides_preview'
 if (-not (Test-Path $outDir)) {
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 }

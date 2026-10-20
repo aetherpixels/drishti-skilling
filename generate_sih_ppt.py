@@ -22,6 +22,7 @@ def create_drishti_sih_presentation(output_path):
     slide2_orb_path = os.path.abspath('presentation_assets/slide2_orbital.png')
     slide2_wf_e2e_path = os.path.abspath('presentation_assets/slide2_workflow_e2e.png')
     slide2_inn_cards_path = os.path.abspath('presentation_assets/slide2_innovation_cards.png')
+    slide2_complete_path = os.path.abspath('presentation_assets/slide2_proposed_solution_complete.png')
     slide3_arch_path = os.path.abspath('presentation_assets/slide3_architecture.png')
     slide4_mind_path = os.path.abspath('presentation_assets/slide4_mindmap.png')
     slide5_road_path = os.path.abspath('presentation_assets/slide5_roadmap.png')
@@ -173,105 +174,26 @@ def create_drishti_sih_presentation(output_path):
     p_tag.alignment = PP_ALIGN.CENTER
 
     # ==========================================
-    # SLIDE 2: PROPOSED SOLUTION & INNOVATION
-    # (Exact layout & visual structure matching reference image)
+    # SLIDE 2: PROPOSED SOLUTION
+    # (Comprehensive 3-in-1 Dashboard: Gap Closure, Workflow & Uniqueness)
     # ==========================================
     slide2 = prs.slides.add_slide(blank_layout)
-    add_header(slide2, "DRISHTI-SKILLING", slide_num=2, subtitle="Privacy-Preserving Edge AI Governance for Vocational Centres")
+    add_header(slide2, "DRISHTI-SKILLING", slide_num=None, subtitle="Privacy-Preserving Edge AI Governance for Vocational Centres")
 
-    # Left Column:
-    # 1. Blue Header Banner with Lightbulb Icon
-    banner_l2 = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(1.05), Inches(5.25), Inches(0.46))
-    banner_l2.fill.solid()
-    banner_l2.fill.fore_color.rgb = COLOR_BANNER_BLUE
-    banner_l2.line.color.rgb = COLOR_NAVY
-    banner_l2.line.width = Pt(1.2)
-    tf_banner = banner_l2.text_frame
-    tf_banner.vertical_anchor = MSO_ANCHOR.MIDDLE
-    tf_banner.margin_left = Inches(0.15)
-    p_b = tf_banner.paragraphs[0]
-    p_b.text = "💡  Proposed Solution / Approach"
-    p_b.font.name = "Georgia"
-    p_b.font.size = Pt(14)
-    p_b.font.bold = True
-    p_b.font.color.rgb = COLOR_WHITE
-    p_b.alignment = PP_ALIGN.CENTER
+    # Complete 3-in-1 High-Resolution Infographic Visual (Zero Empty Space)
+    if os.path.exists(slide2_complete_path):
+        slide2.shapes.add_picture(slide2_complete_path, Inches(0.35), Inches(1.02), width=Inches(12.63), height=Inches(6.32))
 
-    # 2. Container Box with Structured Bullets
-    box_l2 = slide2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.4), Inches(1.56), Inches(5.25), Inches(5.44))
-    box_l2.fill.solid()
-    box_l2.fill.fore_color.rgb = COLOR_WHITE
-    box_l2.line.color.rgb = COLOR_CARD_BORDER
-    box_l2.line.width = Pt(1.2)
-
-    tf_l2 = box_l2.text_frame
-    tf_l2.word_wrap = True
-    tf_l2.margin_left = Inches(0.20)
-    tf_l2.margin_right = Inches(0.20)
-    tf_l2.margin_top = Inches(0.18)
-    tf_l2.margin_bottom = Inches(0.15)
-
-    bullet_data = [
-        ("• Assured Edge Video Analytics: ",
-         "Eliminates bandwidth bottlenecks by ingesting existing lab RTSP CCTV feeds locally on an affordable on-premise Mini-PC. Processes frames on-device with zero raw cloud video streaming required."),
-        
-        ("• 50 FPS Volatile RAM Face De-ID: ",
-         "Irreversibly blurs trainee faces directly in volatile RAM via BlazeFace before any processing. Fully compliant with DPDP Act 2023 with zero facial biometric vectors stored or leaked."),
-        
-        ("• Dual-Factor Trainee & Equipment Audit: ",
-         "YOLOv8 simultaneously verifies physical student presence and audits mandatory trade machines (welding booths, wiring boards, multimeters) to eradicate rented machinery scams."),
-        
-        ("• Temporal Consistency Rolling Filter: ",
-         "Enforces a 5-minute rolling average window to eliminate false alarms caused by transient student movement, washroom breaks, or water intervals during practical sessions."),
-        
-        ("• Automated Timetable Cross-Reconciliation: ",
-         "Cross-matches edge telemetry against Skill India Portal (SIDH) rosters in real-time, automatically flagging ghost enrollments and locking DBT subsidy grants on deficit.")
-    ]
-
-    for idx, (b_title, b_desc) in enumerate(bullet_data):
-        p_item = tf_l2.paragraphs[0] if idx == 0 else tf_l2.add_paragraph()
-        if idx > 0:
-            p_item.space_before = Pt(6)
-        
-        r_title = p_item.add_run()
-        r_title.text = b_title
-        r_title.font.name = "Arial"
-        r_title.font.size = Pt(9.8)
-        r_title.font.bold = True
-        r_title.font.color.rgb = COLOR_DARK
-
-        r_desc = p_item.add_run()
-        r_desc.text = b_desc
-        r_desc.font.name = "Arial"
-        r_desc.font.size = Pt(9.2)
-        r_desc.font.color.rgb = COLOR_MUTED
-
-    # Bottom Live Production Link inside container
-    p_link = tf_l2.add_paragraph()
-    p_link.space_before = Pt(8)
-    r_ll = p_link.add_run()
-    r_ll.text = "🔗 Live Production Demo: "
-    r_ll.font.name = "Arial"
-    r_ll.font.size = Pt(9.0)
-    r_ll.font.bold = True
-    r_ll.font.color.rgb = COLOR_BLUE_ACCENT
-
-    r_url = p_link.add_run()
-    r_url.text = "https://drishti-skilling.vercel.app/"
-    r_url.font.name = "Arial"
-    r_url.font.size = Pt(9.0)
-    r_url.font.bold = True
-    r_url.font.underline = True
-    r_url.font.color.rgb = COLOR_BLUE_ACCENT
-
-    # Right Column:
-    # 1. Top: DRISHTI-SKILLING End-to-end workflow diagram
-    if os.path.exists(slide2_wf_e2e_path):
-        slide2.shapes.add_picture(slide2_wf_e2e_path, Inches(5.82), Inches(1.05), width=Inches(7.15))
-
-    # 2. Bottom: Innovation and Uniqueness Cards diagram
-    if os.path.exists(slide2_inn_cards_path):
-        slide2.shapes.add_picture(slide2_inn_cards_path, Inches(5.82), Inches(4.48), width=Inches(7.15))
+    # Slide number badge placed cleanly
+    num_box2 = slide2.shapes.add_textbox(Inches(12.4), Inches(6.92), Inches(0.7), Inches(0.4))
+    tf_num2 = num_box2.text_frame
+    p_num2 = tf_num2.paragraphs[0]
+    p_num2.text = "2"
+    p_num2.font.name = "Arial"
+    p_num2.font.size = Pt(16)
+    p_num2.font.bold = True
+    p_num2.font.color.rgb = COLOR_TEAL
+    p_num2.alignment = PP_ALIGN.RIGHT
 
     # ==========================================
     # SLIDE 3: TECHNICAL APPROACH
